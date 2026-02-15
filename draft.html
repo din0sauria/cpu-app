@@ -1,0 +1,1626 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NeuralCore Security Lab - AI CPU漏洞检测平台</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #1a3d7c;
+      --secondary: #00d4ff;
+      --accent: #00ff9d;
+      --bg-dark: #0a0e27;
+      --bg-card: rgba(16, 22, 58, 0.8);
+      --border-glow: rgba(0, 212, 255, 0.3);
+      --danger: #ff3366;
+      --warning: #ffaa00;
+      --info: #00d4ff;
+      --success: #00ff9d;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Rajdhani', sans-serif;
+      background: var(--bg-dark);
+      color: #fff;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* 背景网格动画 */
+    .bg-grid {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.15;
+      background-image: 
+        linear-gradient(rgba(0, 212, 255, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 212, 255, 0.1) 1px, transparent 1px);
+      background-size: 50px 50px;
+      animation: gridMove 20s linear infinite;
+    }
+
+    @keyframes gridMove {
+      0% { transform: perspective(500px) rotateX(60deg) translateY(0); }
+      100% { transform: perspective(500px) rotateX(60deg) translateY(50px); }
+    }
+
+    /* 粒子背景 */
+    .particles {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .particle {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      background: var(--secondary);
+      border-radius: 50%;
+      opacity: 0.6;
+      animation: float 10s infinite ease-in-out;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+      10% { opacity: 0.6; }
+      90% { opacity: 0.6; }
+      100% { transform: translateY(-100vh) rotate(720deg); opacity: 0; }
+    }
+
+    /* 主容器 */
+    #app {
+      position: relative;
+      z-index: 10;
+      min-height: 100vh;
+    }
+
+    /* 左侧导航 */
+    .sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 260px;
+      height: 100vh;
+      background: linear-gradient(180deg, rgba(10, 14, 39, 0.98) 0%, rgba(16, 22, 58, 0.95) 100%);
+      border-right: 1px solid var(--border-glow);
+      z-index: 100;
+      padding: 20px 0;
+      overflow-y: auto;
+    }
+
+    .logo {
+      text-align: center;
+      padding: 20px;
+      border-bottom: 1px solid var(--border-glow);
+      margin-bottom: 20px;
+    }
+
+    .logo h1 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--secondary), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
+    }
+
+    .logo p {
+      font-size: 11px;
+      color: var(--secondary);
+      margin-top: 5px;
+      opacity: 0.8;
+    }
+
+    .nav-menu {
+      list-style: none;
+      padding: 0 15px;
+    }
+
+    .nav-item {
+      margin-bottom: 5px;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      padding: 12px 15px;
+      color: rgba(255, 255, 255, 0.7);
+      text-decoration: none;
+      border-radius: 8px;
+      transition: all 0.3s ease;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .nav-link:hover, .nav-link.active {
+      background: rgba(0, 212, 255, 0.1);
+      color: var(--secondary);
+      box-shadow: 0 0 20px rgba(0, 212, 255, 0.2);
+    }
+
+    .nav-link i {
+      margin-right: 10px;
+      font-size: 16px;
+    }
+
+    .nav-sub {
+      list-style: none;
+      padding-left: 40px;
+      margin-top: 5px;
+    }
+
+    .nav-sub li {
+      padding: 8px 15px;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+      border-left: 2px solid transparent;
+    }
+
+    .nav-sub li:hover {
+      color: var(--accent);
+      border-left-color: var(--accent);
+    }
+
+    /* 主内容区 */
+    .main-content {
+      margin-left: 260px;
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    /* 顶部栏 */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 25px;
+      background: var(--bg-card);
+      border-radius: 12px;
+      border: 1px solid var(--border-glow);
+      margin-bottom: 20px;
+    }
+
+    .page-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .top-actions {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+    }
+
+    .btn-primary {
+      padding: 10px 25px;
+      background: linear-gradient(135deg, var(--secondary), var(--primary));
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-primary::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      transition: left 0.5s;
+    }
+
+    .btn-primary:hover::before {
+      left: 100%;
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
+      transform: translateY(-2px);
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* 数据大屏网格 */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 20px;
+    }
+
+    /* 玻璃拟态卡片 */
+    .glass-card {
+      background: var(--bg-card);
+      border-radius: 16px;
+      border: 1px solid var(--border-glow);
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+    }
+
+    .glass-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--secondary), transparent);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .card-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--secondary);
+    }
+
+    .card-badge {
+      padding: 4px 10px;
+      background: rgba(0, 212, 255, 0.2);
+      border-radius: 20px;
+      font-size: 11px;
+      color: var(--secondary);
+    }
+
+    /* 平台概览 */
+    .overview-card {
+      grid-column: span 12;
+    }
+
+    .overview-stats {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .stat-item {
+      text-align: center;
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 12px;
+      border: 1px solid rgba(0, 212, 255, 0.2);
+      transition: all 0.3s;
+    }
+
+    .stat-item:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 30px rgba(0, 212, 255, 0.2);
+    }
+
+    .stat-value {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 32px;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--secondary), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.6);
+      margin-top: 8px;
+    }
+
+    .stat-change {
+      font-size: 11px;
+      color: var(--success);
+      margin-top: 5px;
+    }
+
+    /* 系统监控 */
+    .monitor-card {
+      grid-column: span 4;
+      min-height: 300px;
+    }
+
+    .monitor-item {
+      margin-bottom: 20px;
+    }
+
+    .monitor-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .monitor-bar {
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .monitor-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.5s ease;
+      position: relative;
+    }
+
+    .monitor-fill::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      animation: shimmer 2s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    .monitor-fill.cpu { background: linear-gradient(90deg, var(--secondary), var(--accent)); }
+    .monitor-fill.memory { background: linear-gradient(90deg, var(--warning), var(--danger)); }
+    .monitor-fill.network { background: linear-gradient(90deg, var(--info), var(--secondary)); }
+
+    /* 仪表盘 */
+    .gauge-container {
+      display: flex;
+      justify-content: space-around;
+      margin-top: 20px;
+    }
+
+    .gauge {
+      position: relative;
+      width: 100px;
+      height: 100px;
+    }
+
+    .gauge-bg {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.1);
+      stroke-width: 8;
+    }
+
+    .gauge-fill {
+      fill: none;
+      stroke: var(--secondary);
+      stroke-width: 8;
+      stroke-linecap: round;
+      stroke-dasharray: 251;
+      stroke-dashoffset: 251;
+      transition: stroke-dashoffset 1s ease;
+      transform: rotate(-90deg);
+      transform-origin: center;
+    }
+
+    .gauge-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+
+    .gauge-value {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .gauge-label {
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    /* POC/EXP矩阵 */
+    .poc-card {
+      grid-column: span 8;
+    }
+
+    .poc-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      margin-top: 15px;
+    }
+
+    .poc-item {
+      padding: 15px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.3s;
+      cursor: pointer;
+    }
+
+    .poc-item:hover {
+      transform: translateY(-5px) scale(1.02);
+      border-color: var(--secondary);
+      box-shadow: 0 10px 30px rgba(0, 212, 255, 0.2);
+    }
+
+    .poc-item.high { border-left: 3px solid var(--danger); }
+    .poc-item.medium { border-left: 3px solid var(--warning); }
+    .poc-item.low { border-left: 3px solid var(--success); }
+
+    .poc-name {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+
+    .poc-type {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .poc-risk {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+      margin-top: 8px;
+    }
+
+    .poc-risk.high { background: rgba(255, 51, 102, 0.2); color: var(--danger); }
+    .poc-risk.medium { background: rgba(255, 170, 0, 0.2); color: var(--warning); }
+    .poc-risk.low { background: rgba(0, 255, 157, 0.2); color: var(--success); }
+
+    /* 热力图 */
+    .heatmap-card {
+      grid-column: span 6;
+    }
+
+    .heatmap {
+      display: grid;
+      grid-template-columns: 100px repeat(4, 1fr);
+      gap: 5px;
+      margin-top: 15px;
+    }
+
+    .heatmap-header {
+      text-align: center;
+      padding: 10px;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .heatmap-label {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding-right: 10px;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .heatmap-cell {
+      aspect-ratio: 1;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .heatmap-cell:hover {
+      transform: scale(1.1);
+      z-index: 10;
+    }
+
+    .heatmap-cell.high { background: rgba(255, 51, 102, 0.6); }
+    .heatmap-cell.medium { background: rgba(255, 170, 0, 0.6); }
+    .heatmap-cell.low { background: rgba(0, 255, 157, 0.4); }
+    .heatmap-cell.none { background: rgba(255, 255, 255, 0.05); }
+
+    /* AI分析流水线 */
+    .ai-pipeline-card {
+      grid-column: span 6;
+    }
+
+    .code-window {
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 8px;
+      padding: 15px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      margin-top: 15px;
+    }
+
+    .code-line {
+      padding: 3px 0;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .code-line.highlight {
+      background: rgba(0, 212, 255, 0.2);
+      border-left: 2px solid var(--secondary);
+      padding-left: 10px;
+      margin-left: -10px;
+    }
+
+    .code-comment { color: #6a9955; }
+    .code-instr { color: #569cd6; }
+    .code-addr { color: #9cdcfe; }
+    .code-risk { color: var(--danger); }
+
+    .pipeline-flow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 20px;
+      padding: 15px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+    }
+
+    .pipeline-step {
+      text-align: center;
+      flex: 1;
+    }
+
+    .pipeline-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(0, 212, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 8px;
+      font-size: 16px;
+      border: 1px solid var(--secondary);
+      animation: pulse 2s infinite;
+    }
+
+    .pipeline-step.active .pipeline-icon {
+      background: rgba(0, 255, 157, 0.3);
+      border-color: var(--accent);
+      box-shadow: 0 0 20px rgba(0, 255, 157, 0.3);
+    }
+
+    .pipeline-label {
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .pipeline-arrow {
+      color: var(--secondary);
+      font-size: 20px;
+    }
+
+    /* 实时检测流 */
+    .stream-card {
+      grid-column: span 6;
+      max-height: 400px;
+      overflow: hidden;
+    }
+
+    .stream-list {
+      margin-top: 15px;
+      overflow-y: auto;
+      max-height: 300px;
+    }
+
+    .stream-item {
+      display: flex;
+      align-items: center;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      border-left: 2px solid transparent;
+      animation: slideIn 0.5s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .stream-item.success { border-left-color: var(--success); }
+    .stream-item.warning { border-left-color: var(--warning); }
+
+    .stream-flag {
+      font-size: 18px;
+      margin-right: 10px;
+    }
+
+    .stream-content {
+      flex: 1;
+    }
+
+    .stream-text {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .stream-meta {
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.5);
+      margin-top: 3px;
+    }
+
+    .stream-status {
+      font-size: 16px;
+    }
+
+    /* 底部状态栏 */
+    .bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 260px;
+      right: 0;
+      height: 50px;
+      background: rgba(10, 14, 39, 0.95);
+      border-top: 1px solid var(--border-glow);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 25px;
+      z-index: 100;
+    }
+
+    .hardware-stats {
+      display: flex;
+      gap: 30px;
+    }
+
+    .hw-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+    }
+
+    .hw-bar {
+      width: 80px;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .hw-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.5s;
+    }
+
+    .security-status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      color: var(--success);
+    }
+
+    /* 3D芯片容器 */
+    .chip-3d-container {
+      grid-column: span 4;
+      min-height: 300px;
+      position: relative;
+    }
+
+    #chip-canvas {
+      width: 100%;
+      height: 250px;
+      border-radius: 12px;
+    }
+
+    /* 漏洞详情弹窗 */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal-content {
+      width: 800px;
+      max-height: 80vh;
+      overflow-y: auto;
+      background: linear-gradient(135deg, rgba(16, 22, 58, 0.98), rgba(10, 14, 39, 0.98));
+      border-radius: 16px;
+      border: 1px solid var(--border-glow);
+      padding: 30px;
+      transform: scale(0.9);
+      transition: transform 0.3s;
+    }
+
+    .modal-overlay.active .modal-content {
+      transform: scale(1);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid var(--border-glow);
+    }
+
+    .modal-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 20px;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 24px;
+      cursor: pointer;
+    }
+
+    .vuln-section {
+      margin-bottom: 20px;
+    }
+
+    .vuln-section h4 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 14px;
+      color: var(--secondary);
+      margin-bottom: 10px;
+    }
+
+    .vuln-section p, .vuln-section li {
+      font-size: 13px;
+      line-height: 1.6;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .vuln-section ul {
+      padding-left: 20px;
+    }
+
+    .code-block {
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 8px;
+      padding: 15px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      overflow-x: auto;
+      margin-top: 10px;
+    }
+
+    /* 滚动条样式 */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--secondary);
+      border-radius: 3px;
+    }
+
+    /* 响应式 */
+    @media (max-width: 1400px) {
+      .overview-stats {
+        grid-template-columns: repeat(3, 1fr);
+      }
+      .poc-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 1024px) {
+      .sidebar {
+        width: 200px;
+      }
+      .main-content {
+        margin-left: 200px;
+      }
+      .bottom-bar {
+        left: 200px;
+      }
+      .monitor-card, .chip-3d-container, .heatmap-card, .ai-pipeline-card, .stream-card {
+        grid-column: span 12;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="particles" id="particles"></div>
+  
+  <div id="app">
+    <!-- 左侧导航 -->
+    <aside class="sidebar">
+      <div class="logo">
+        <h1>NeuralCore</h1>
+        <p>AI-Powered CPU Vulnerability Detection</p>
+      </div>
+      
+      <ul class="nav-menu">
+        <li class="nav-item">
+          <a class="nav-link active" @click="currentView = 'dashboard'">
+            <span>🏠</span> 首页（大屏）
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" @click="currentView = 'detect'">
+            <span>🔍</span> 漏洞检测中心
+          </a>
+          <ul class="nav-sub">
+            <li>主机实时检测</li>
+            <li>历史报告</li>
+          </ul>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" @click="currentView = 'exp'">
+            <span>💥</span> EXP攻防实验室
+          </a>
+          <ul class="nav-sub">
+            <li>漏洞原理动画库</li>
+            <li>攻击代码生成器</li>
+            <li>防御方案建议</li>
+          </ul>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" @click="currentView = 'scan'">
+            <span>📤</span> 代码安全扫描
+          </a>
+          <ul class="nav-sub">
+            <li>上传源码检测</li>
+            <li>AI修复建议</li>
+          </ul>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" @click="currentView = 'knowledge'">
+            <span>📚</span> 知识库
+          </a>
+          <ul class="nav-sub">
+            <li>POC/EXP详情库</li>
+            <li>逆向资源图谱</li>
+            <li>复现环境指南</li>
+          </ul>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" @click="currentView = 'profile'">
+            <span>👤</span> 个人中心
+          </a>
+        </li>
+      </ul>
+    </aside>
+
+    <!-- 主内容 -->
+    <main class="main-content">
+      <!-- 顶部栏 -->
+      <div class="top-bar">
+        <h2 class="page-title">控制中心 Dashboard</h2>
+        <div class="top-actions">
+          <div class="status-indicator">
+            <span class="status-dot"></span>
+            <span>系统运行正常</span>
+          </div>
+          <button class="btn-primary" @click="startQuickScan">🚀 一键检测</button>
+        </div>
+      </div>
+
+      <!-- 数据大屏 -->
+      <div class="dashboard-grid" v-if="currentView === 'dashboard'">
+        <!-- 平台概览 -->
+        <div class="glass-card overview-card">
+          <div class="card-header">
+            <h3 class="card-title">💡 平台概览</h3>
+            <span class="card-badge">实时更新</span>
+          </div>
+          <div class="overview-stats">
+            <div class="stat-item">
+              <div class="stat-value">{{ animatedStats.hosts }}</div>
+              <div class="stat-label">已检测主机数</div>
+              <div class="stat-change">↑ 12.5%</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">{{ animatedStats.vulns }}</div>
+              <div class="stat-label">成功发现漏洞</div>
+              <div class="stat-change">↑ 8.3%</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">{{ animatedStats.pocs }}</div>
+              <div class="stat-label">POC总数</div>
+              <div class="stat-change">+5 本周新增</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">{{ animatedStats.exps }}</div>
+              <div class="stat-label">EXP演示数量</div>
+              <div class="stat-change">↑ 15.2%</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">{{ animatedStats.accuracy }}%</div>
+              <div class="stat-label">AI分析准确率</div>
+              <div class="stat-change">↑ 2.1%</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3D芯片展示 -->
+        <div class="glass-card chip-3d-container">
+          <div class="card-header">
+            <h3 class="card-title">🧠 CPU微架构可视化</h3>
+          </div>
+          <canvas id="chip-canvas"></canvas>
+        </div>
+
+        <!-- 实时系统监控 -->
+        <div class="glass-card monitor-card">
+          <div class="card-header">
+            <h3 class="card-title">📊 实时系统状态</h3>
+            <span class="card-badge">Live</span>
+          </div>
+          
+          <div class="gauge-container">
+            <div class="gauge">
+              <svg viewBox="0 0 100 100">
+                <circle class="gauge-bg" cx="50" cy="50" r="40"/>
+                <circle class="gauge-fill" cx="50" cy="50" r="40" :style="{strokeDashoffset: 251 - (251 * systemStatus.cpu / 100)}"/>
+              </svg>
+              <div class="gauge-text">
+                <div class="gauge-value">{{ systemStatus.cpu }}%</div>
+                <div class="gauge-label">CPU</div>
+              </div>
+            </div>
+            <div class="gauge">
+              <svg viewBox="0 0 100 100">
+                <circle class="gauge-bg" cx="50" cy="50" r="40"/>
+                <circle class="gauge-fill" cx="50" cy="50" r="40" :style="{strokeDashoffset: 251 - (251 * systemStatus.memory / 100)}"/>
+              </svg>
+              <div class="gauge-text">
+                <div class="gauge-value">{{ systemStatus.memory }}%</div>
+                <div class="gauge-label">内存</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="monitor-item">
+            <div class="monitor-header">
+              <span>CPU频率</span>
+              <span>{{ systemStatus.cpuFreq }} MHz</span>
+            </div>
+            <div class="monitor-bar">
+              <div class="monitor-fill cpu" :style="{width: systemStatus.cpu + '%'}"></div>
+            </div>
+          </div>
+
+          <div class="monitor-item">
+            <div class="monitor-header">
+              <span>内存使用</span>
+              <span>{{ systemStatus.memoryUsed }}/{{ systemStatus.memoryTotal }}GB</span>
+            </div>
+            <div class="monitor-bar">
+              <div class="monitor-fill memory" :style="{width: systemStatus.memory + '%'}"></div>
+            </div>
+          </div>
+
+          <div class="monitor-item">
+            <div class="monitor-header">
+              <span>风扇转速</span>
+              <span>{{ systemStatus.fan }} RPM</span>
+            </div>
+            <div class="monitor-bar">
+              <div class="monitor-fill network" :style="{width: (systemStatus.fan / 50) + '%'}"></div>
+            </div>
+          </div>
+
+          <div class="monitor-item">
+            <div class="monitor-header">
+              <span>网络流量</span>
+              <span>▲{{ systemStatus.netUp }}MB/s ▼{{ systemStatus.netDown }}MB/s</span>
+            </div>
+            <div class="monitor-bar">
+              <div class="monitor-fill cpu" :style="{width: (systemStatus.netUp + systemStatus.netDown) * 10 + '%'}"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- POC/EXP资源矩阵 -->
+        <div class="glass-card poc-card">
+          <div class="card-header">
+            <h3 class="card-title">🎯 漏洞资源知识库</h3>
+            <span class="card-badge">196 POCs | 87 EXPs</span>
+          </div>
+          <div class="poc-grid">
+            <div v-for="poc in pocList" :key="poc.id" class="poc-item" :class="poc.risk" @click="showPocDetail(poc)">
+              <div class="poc-name">{{ poc.name }}</div>
+              <div class="poc-type">{{ poc.resource }}</div>
+              <span class="poc-risk" :class="poc.risk">{{ poc.riskText }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 漏洞分布热力图 -->
+        <div class="glass-card heatmap-card">
+          <div class="card-header">
+            <h3 class="card-title">🌍 漏洞分布热力图</h3>
+            <span class="card-badge">处理器 × 操作系统</span>
+          </div>
+          <div class="heatmap">
+            <div></div>
+            <div class="heatmap-header">Windows</div>
+            <div class="heatmap-header">Linux</div>
+            <div class="heatmap-header">macOS</div>
+            <div class="heatmap-header">其他</div>
+            
+            <template v-for="(row, idx) in heatmapData" :key="idx">
+              <div class="heatmap-label">{{ row.cpu }}</div>
+              <div v-for="(cell, cidx) in row.data" :key="cidx" 
+                   class="heatmap-cell" :class="cell.level"
+                   :title="cell.tooltip">
+                {{ cell.icon }}
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- AI分析流水线 -->
+        <div class="glass-card ai-pipeline-card">
+          <div class="card-header">
+            <h3 class="card-title">🤖 AI漏洞分析引擎</h3>
+            <span class="card-badge">实时模拟</span>
+          </div>
+          
+          <div class="code-window">
+            <div class="code-line" :class="{highlight: currentCodeLine === 0}">
+              <span class="code-comment">; Spectre V1 POC - 边界检查绕过</span>
+            </div>
+            <div class="code-line" :class="{highlight: currentCodeLine === 1}">
+              <span class="code-instr">mov</span> <span class="code-addr">rax</span>, [<span class="code-risk">secret_addr</span>]
+            </div>
+            <div class="code-line" :class="{highlight: currentCodeLine === 2}">
+              <span class="code-instr">clflush</span> [<span class="code-addr">rax</span>]
+            </div>
+            <div class="code-line" :class="{highlight: currentCodeLine === 3}">
+              <span class="code-instr">mfence</span>
+            </div>
+            <div class="code-line" :class="{highlight: currentCodeLine === 4}">
+              <span class="code-comment">; 测量访问时间差...</span>
+            </div>
+          </div>
+
+          <div class="pipeline-flow">
+            <div class="pipeline-step" :class="{active: pipelineStep >= 0}">
+              <div class="pipeline-icon">📥</div>
+              <div class="pipeline-label">用户代码</div>
+            </div>
+            <span class="pipeline-arrow">→</span>
+            <div class="pipeline-step" :class="{active: pipelineStep >= 1}">
+              <div class="pipeline-icon">🔍</div>
+              <div class="pipeline-label">词法分析</div>
+            </div>
+            <span class="pipeline-arrow">→</span>
+            <div class="pipeline-step" :class="{active: pipelineStep >= 2}">
+              <div class="pipeline-icon">🎯</div>
+              <div class="pipeline-label">模式匹配</div>
+            </div>
+            <span class="pipeline-arrow">→</span>
+            <div class="pipeline-step" :class="{active: pipelineStep >= 3}">
+              <div class="pipeline-icon">⏱️</div>
+              <div class="pipeline-label">时序检测</div>
+            </div>
+            <span class="pipeline-arrow">→</span>
+            <div class="pipeline-step" :class="{active: pipelineStep >= 4}">
+              <div class="pipeline-icon">⭐</div>
+              <div class="pipeline-label">风险评级</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 实时检测流 -->
+        <div class="glass-card stream-card">
+          <div class="card-header">
+            <h3 class="card-title">🌐 全球检测实时流</h3>
+            <span class="card-badge">最近5分钟</span>
+          </div>
+          <div class="stream-list" ref="streamList">
+            <div v-for="(item, idx) in streamData" :key="idx" class="stream-item" :class="item.type">
+              <span class="stream-flag">{{ item.flag }}</span>
+              <div class="stream-content">
+                <div class="stream-text">{{ item.text }}</div>
+                <div class="stream-meta">{{ item.time }}</div>
+              </div>
+              <span class="stream-status">{{ item.status }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- 底部状态栏 -->
+    <div class="bottom-bar">
+      <div class="hardware-stats">
+        <div class="hw-item">
+          <span>CPU:</span>
+          <span>{{ systemStatus.cpu }}%</span>
+          <div class="hw-bar">
+            <div class="hw-fill" :style="{width: systemStatus.cpu + '%', background: 'linear-gradient(90deg, #00d4ff, #00ff9d)'}"></div>
+          </div>
+        </div>
+        <div class="hw-item">
+          <span>内存:</span>
+          <span>{{ systemStatus.memory }}%</span>
+          <div class="hw-bar">
+            <div class="hw-fill" :style="{width: systemStatus.memory + '%', background: 'linear-gradient(90deg, #ffaa00, #ff3366)'}"></div>
+          </div>
+        </div>
+        <div class="hw-item">
+          <span>温度:</span>
+          <span>{{ systemStatus.temp }}°C</span>
+        </div>
+        <div class="hw-item">
+          <span>风扇:</span>
+          <span>{{ systemStatus.fan }} RPM</span>
+        </div>
+      </div>
+      <div class="security-status">
+        <span class="status-dot"></span>
+        <span>🔒 无活跃威胁</span>
+      </div>
+    </div>
+
+    <!-- 漏洞详情弹窗 -->
+    <div class="modal-overlay" :class="{active: showModal}" @click="showModal = false">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3 class="modal-title">{{ selectedPoc?.name }}</h3>
+          <button class="modal-close" @click="showModal = false">×</button>
+        </div>
+        <div class="modal-body" v-if="selectedPoc">
+          <div class="vuln-section">
+            <h4>📌 基本信息</h4>
+            <p><strong>CVE编号:</strong> {{ selectedPoc.cve }}</p>
+            <p><strong>风险等级:</strong> {{ selectedPoc.riskText }}</p>
+            <p><strong>逆向资源:</strong> {{ selectedPoc.resource }}</p>
+          </div>
+          
+          <div class="vuln-section">
+            <h4>🔍 攻击原理</h4>
+            <p>{{ selectedPoc.principle }}</p>
+          </div>
+
+          <div class="vuln-section">
+            <h4>💻 核心代码</h4>
+            <div class="code-block">
+              <pre>{{ selectedPoc.code }}</pre>
+            </div>
+          </div>
+
+          <div class="vuln-section">
+            <h4>⚙️ 运行环境</h4>
+            <ul>
+              <li><strong>软件环境:</strong> {{ selectedPoc.env?.software }}</li>
+              <li><strong>系统版本:</strong> {{ selectedPoc.env?.os }}</li>
+              <li><strong>硬件版本:</strong> {{ selectedPoc.env?.hardware }}</li>
+            </ul>
+          </div>
+
+          <div class="vuln-section">
+            <h4>📊 成功率与耗时</h4>
+            <p><strong>成功率:</strong> {{ selectedPoc.successRate }} | <strong>平均耗时:</strong> {{ selectedPoc.avgTime }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, reactive, onMounted, onUnmounted, nextTick } = Vue;
+
+    createApp({
+      setup() {
+        const currentView = ref('dashboard');
+        const showModal = ref(false);
+        const selectedPoc = ref(null);
+        const currentCodeLine = ref(0);
+        const pipelineStep = ref(0);
+        const streamList = ref(null);
+
+        // 动画统计数据
+        const animatedStats = reactive({
+          hosts: 0,
+          vulns: 0,
+          pocs: 0,
+          exps: 0,
+          accuracy: 0
+        });
+
+        // 系统状态
+        const systemStatus = reactive({
+          cpu: 38,
+          memory: 39,
+          memoryUsed: 12.4,
+          memoryTotal: 32,
+          cpuFreq: 4032,
+          fan: 1850,
+          temp: 42,
+          netUp: 1.2,
+          netDown: 0.8
+        });
+
+        // POC列表
+        const pocList = [
+          { id: 1, name: 'Spectre V1', resource: 'Cache', risk: 'high', riskText: '高危', cve: 'CVE-2017-5753', 
+            principle: '利用分支预测错误将数据加载至Cache，通过Flush+Reload测量访问时间差，从而泄露敏感信息。',
+            code: `// Spectre V1 POC\nvoid spectre_v1(char *array, size_t index) {\n  if (index < array_size) {\n    char value = array[index];\n    temp &= cache[value * 4096];\n  }\n}`,
+            env: { software: 'C/C++', os: 'Linux 4.x+, Windows 10+', hardware: 'Intel Core 2010+, AMD Ryzen' },
+            successRate: '98.7% (确定性)', avgTime: '12.3ms' },
+          { id: 2, name: 'Meltdown', resource: 'TLB', risk: 'high', riskText: '高危', cve: 'CVE-2017-5754',
+            principle: '利用乱序执行机制，在用户态读取内核态内存，通过缓存侧信道提取数据。',
+            code: `// Meltdown POC\nvoid meltdown(char *kernel_addr) {\n  char value = *kernel_addr;\n  array[value * 4096] = 1;\n}`,
+            env: { software: 'C/ASM', os: 'Linux 3.x+, Windows 7+', hardware: 'Intel Core 1995-2020' },
+            successRate: '99.2% (确定性)', avgTime: '8.5ms' },
+          { id: 3, name: 'Foreshadow', resource: 'L1 Cache', risk: 'high', riskText: '高危', cve: 'CVE-2018-3615',
+            principle: '针对Intel SGX Enclave的L1缓存攻击，可从安全飞地中提取敏感数据。',
+            code: `// Foreshadow POC\nvoid foreshadow(void *sgx_addr) {\n  __asm__ volatile(\n    "movzx (%%rcx), %%rax\\n\\t"\n    "shl $12, %%rax\\n\\t"\n    "mov (%%rbx,%%rax), %%rbx"\n  );\n}`,
+            env: { software: 'C/ASM', os: 'Linux 4.14+, Windows 10', hardware: 'Intel Core 6th-9th Gen' },
+            successRate: '95.4% (确定性)', avgTime: '15.2ms' },
+          { id: 4, name: 'Retbleed', resource: 'Branch', risk: 'low', riskText: '低危', cve: 'CVE-2022-29900',
+            principle: '利用返回指令的分支预测历史，通过RSB(Return Stack Buffer)泄露信息。',
+            code: `// Retbleed POC\nvoid retbleed() {\n  // 训练分支预测器\n  for (int i = 0; i < 30; i++) {\n    victim_call(i < 29 ? benign : target);\n  }\n}`,
+            env: { software: 'C/ASM', os: 'Linux 5.x+', hardware: 'AMD Zen 1-2, Intel 6th-11th Gen' },
+            successRate: '87.3% (概率性)', avgTime: '45.6ms' },
+          { id: 5, name: 'ZombieLoad', resource: 'Fill Buffer', risk: 'medium', riskText: '中危', cve: 'CVE-2018-12130',
+            principle: '利用CPU填充缓冲区(fill buffer)的推测执行泄露数据，绕过地址空间隔离。',
+            code: `// ZombieLoad POC\nvoid zombieload() {\n  while (1) {\n    transient_load(secret_data);\n    leak_via_cache(probe_array);\n  }\n}`,
+            env: { software: 'C/ASM', os: 'Linux 4.x+, Windows 10', hardware: 'Intel Core 2010-2019' },
+            successRate: '92.1% (概率性)', avgTime: '23.8ms' },
+          { id: 6, name: 'RIDL', resource: 'Line Fill', risk: 'medium', riskText: '中危', cve: 'CVE-2018-12127',
+            principle: 'Rogue In-Flight Data Load，利用CPU内部缓冲区中的瞬时数据泄露信息。',
+            code: `// RIDL POC\nvoid ridl_leak() {\n  // 触发推测执行\n  asm volatile("lea (%%rip), %0" : "=r"(leak));\n  // 测量缓存状态\n  measure_cache(probe_array);\n}`,
+            env: { software: 'C/ASM', os: 'Linux 4.x+', hardware: 'Intel Core 2008-2018' },
+            successRate: '89.5% (概率性)', avgTime: '31.2ms' },
+          { id: 7, name: 'CacheOut', resource: 'L1-D', risk: 'medium', riskText: '中危', cve: 'CVE-2020-0549',
+            principle: '利用L1数据缓存的逐出机制，跨安全边界泄露数据。',
+            code: `// CacheOut POC\nvoid cacheout() {\n  // 逐出目标缓存行\n  clflush(target_line);\n  // 等待目标访问\n  usleep(100);\n  // 重新加载并测量\n  reload_and_measure();\n}`,
+            env: { software: 'C', os: 'Linux 4.x+, Windows 10', hardware: 'Intel Core 2010-2019' },
+            successRate: '94.2% (确定性)', avgTime: '18.7ms' },
+          { id: 8, name: 'Spectre V2', resource: 'BTB', risk: 'high', riskText: '高危', cve: 'CVE-2017-5715',
+            principle: '分支目标注入攻击，利用分支目标缓冲区(BTB)污染目标地址。',
+            code: `// Spectre V2 POC\nvoid spectre_v2() {\n  // 污染BTB\n  train_btb(victim_target);\n  // 触发推测执行\n  indirect_call(controlled_ptr);\n}`,
+            env: { software: 'C/ASM', os: 'Linux 4.x+, Windows 10+', hardware: 'Intel/AMD/ARM 2010+' },
+            successRate: '96.8% (概率性)', avgTime: '22.4ms' }
+        ];
+
+        // 热力图数据
+        const heatmapData = [
+          { cpu: 'Intel i9', data: [
+            { level: 'high', icon: '🔴', tooltip: 'Spectre V1/V2, Meltdown, L1TF' },
+            { level: 'high', icon: '🔴', tooltip: 'Spectre V1/V2, MDS' },
+            { level: 'medium', icon: '🟡', tooltip: 'Spectre V1/V2' },
+            { level: 'none', icon: '-', tooltip: '无' }
+          ]},
+          { cpu: 'AMD Ryzen 9', data: [
+            { level: 'medium', icon: '🟡', tooltip: 'Spectre V1/V2' },
+            { level: 'high', icon: '🔴', tooltip: 'Spectre V1/V2, Retbleed, Zenbleed' },
+            { level: 'none', icon: '-', tooltip: '无' },
+            { level: 'none', icon: '-', tooltip: '无' }
+          ]},
+          { cpu: 'Apple M2', data: [
+            { level: 'none', icon: '-', tooltip: '无' },
+            { level: 'low', icon: '🟢', tooltip: 'Spectre V1' },
+            { level: 'medium', icon: '🟡', tooltip: 'DMP, Augury' },
+            { level: 'none', icon: '-', tooltip: '无' }
+          ]},
+          { cpu: 'Xeon E5', data: [
+            { level: 'high', icon: '🔴', tooltip: 'Spectre, Meltdown, L1TF, MDS' },
+            { level: 'high', icon: '🔴', tooltip: 'Spectre, Meltdown, MDS' },
+            { level: 'none', icon: '-', tooltip: '无' },
+            { level: 'none', icon: '-', tooltip: '无' }
+          ]}
+        ];
+
+        // 实时流数据
+        const streamData = ref([
+          { flag: '🇺🇸', text: 'User*** 检测到 Spectre V2 (Intel i7-11800H)', time: '5秒前', status: '✅', type: 'success' },
+          { flag: '🇨🇳', text: 'Host*** 发现 L1TF 漏洞 (Xeon E5-2686v4)', time: '12秒前', status: '✅', type: 'success' },
+          { flag: '🇩🇪', text: 'Sys*** 上传代码检测出 3处时序侧信道风险', time: '28秒前', status: '⚠️', type: 'warning' },
+          { flag: '🇯🇵', text: 'Dev*** EXP演示成功：Cache Timing Attack', time: '45秒前', status: '🎯', type: 'success' },
+          { flag: '🇰🇷', text: 'Sec*** 检测到 ZombieLoad 变种 (Core i9)', time: '1分钟前', status: '✅', type: 'success' },
+          { flag: '🇬🇧', text: 'Ana*** AI分析完成：发现2个潜在漏洞点', time: '2分钟前', status: '🤖', type: 'success' },
+          { flag: '🇫🇷', text: 'Lab*** Retbleed POC验证成功 (Ryzen 7)', time: '3分钟前', status: '✅', type: 'success' },
+          { flag: '🇨🇦', text: 'Res*** Foreshadow攻击演示完成', time: '4分钟前', status: '🎯', type: 'success' }
+        ]);
+
+        // 数字动画
+        const animateNumber = (target, key, endValue, duration = 2000) => {
+          const startTime = Date.now();
+          const startValue = target[key];
+          const diff = endValue - startValue;
+          
+          const update = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const easeProgress = 1 - Math.pow(1 - progress, 3);
+            target[key] = Math.floor(startValue + diff * easeProgress);
+            
+            if (progress < 1) {
+              requestAnimationFrame(update);
+            }
+          };
+          requestAnimationFrame(update);
+        };
+
+        // 显示POC详情
+        const showPocDetail = (poc) => {
+          selectedPoc.value = poc;
+          showModal.value = true;
+        };
+
+        // 快速扫描
+        const startQuickScan = () => {
+          alert('🔍 快速扫描已启动！\n\n正在检测系统漏洞...\n预计耗时: 30秒');
+        };
+
+        // 初始化3D芯片
+        const init3DChip = () => {
+          const canvas = document.getElementById('chip-canvas');
+          if (!canvas) return;
+
+          const scene = new THREE.Scene();
+          const camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
+          const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+          
+          renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+          renderer.setPixelRatio(window.devicePixelRatio);
+
+          // 创建芯片主体
+          const chipGeometry = new THREE.BoxGeometry(3, 0.2, 3);
+          const chipMaterial = new THREE.MeshPhongMaterial({
+            color: 0x1a3d7c,
+            emissive: 0x0a0e27,
+            specular: 0x00d4ff,
+            shininess: 100,
+            transparent: true,
+            opacity: 0.9
+          });
+          const chip = new THREE.Mesh(chipGeometry, chipMaterial);
+          scene.add(chip);
+
+          // 添加核心
+          const cores = [];
+          for (let i = 0; i < 4; i++) {
+            for (let j = 0; j < 4; j++) {
+              const coreGeometry = new THREE.BoxGeometry(0.5, 0.3, 0.5);
+              const coreMaterial = new THREE.MeshPhongMaterial({
+                color: 0x00d4ff,
+                emissive: 0x00d4ff,
+                emissiveIntensity: 0.3
+              });
+              const core = new THREE.Mesh(coreGeometry, coreMaterial);
+              core.position.set(-1.125 + i * 0.75, 0.2, -1.125 + j * 0.75);
+              scene.add(core);
+              cores.push(core);
+            }
+          }
+
+          // 添加连接线
+          const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00ff9d, opacity: 0.5, transparent: true });
+          for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 4; j++) {
+              const points = [];
+              points.push(new THREE.Vector3(-0.75 + i * 0.75, 0.2, -1.125 + j * 0.75));
+              points.push(new THREE.Vector3(-0.375 + i * 0.75, 0.2, -1.125 + j * 0.75));
+              const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
+              const line = new THREE.Line(lineGeometry, lineMaterial);
+              scene.add(line);
+            }
+          }
+
+          // 添加光源
+          const ambientLight = new THREE.AmbientLight(0x404040, 2);
+          scene.add(ambientLight);
+
+          const pointLight = new THREE.PointLight(0x00d4ff, 2, 100);
+          pointLight.position.set(5, 5, 5);
+          scene.add(pointLight);
+
+          const pointLight2 = new THREE.PointLight(0x00ff9d, 1, 100);
+          pointLight2.position.set(-5, 5, -5);
+          scene.add(pointLight2);
+
+          camera.position.z = 5;
+          camera.position.y = 3;
+          camera.lookAt(0, 0, 0);
+
+          // 动画
+          let time = 0;
+          const animate = () => {
+            requestAnimationFrame(animate);
+            time += 0.01;
+
+            chip.rotation.y += 0.005;
+            
+            cores.forEach((core, idx) => {
+              core.material.emissiveIntensity = 0.3 + Math.sin(time + idx) * 0.2;
+            });
+
+            renderer.render(scene, camera);
+          };
+          animate();
+
+          // 响应式
+          window.addEventListener('resize', () => {
+            camera.aspect = canvas.clientWidth / canvas.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+          });
+        };
+
+        // 创建粒子
+        const createParticles = () => {
+          const container = document.getElementById('particles');
+          if (!container) return;
+          
+          for (let i = 0; i < 30; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.animationDelay = Math.random() * 10 + 's';
+            particle.style.animationDuration = (10 + Math.random() * 10) + 's';
+            container.appendChild(particle);
+          }
+        };
+
+        // 定时更新
+        let timers = [];
+
+        onMounted(() => {
+          // 数字动画
+          setTimeout(() => {
+            animateNumber(animatedStats, 'hosts', 1287);
+            animateNumber(animatedStats, 'vulns', 432);
+            animateNumber(animatedStats, 'pocs', 196);
+            animateNumber(animatedStats, 'exps', 87);
+            animateNumber(animatedStats, 'accuracy', 94);
+          }, 500);
+
+          // 初始化3D芯片
+          nextTick(() => {
+            init3DChip();
+            createParticles();
+          });
+
+          // 系统状态模拟
+          timers.push(setInterval(() => {
+            systemStatus.cpu = 30 + Math.floor(Math.random() * 20);
+            systemStatus.memory = 35 + Math.floor(Math.random() * 10);
+            systemStatus.temp = 40 + Math.floor(Math.random() * 8);
+            systemStatus.fan = 1800 + Math.floor(Math.random() * 200);
+            systemStatus.netUp = (1 + Math.random()).toFixed(1);
+            systemStatus.netDown = (0.5 + Math.random() * 0.5).toFixed(1);
+          }, 2000));
+
+          // AI流水线动画
+          timers.push(setInterval(() => {
+            currentCodeLine.value = (currentCodeLine.value + 1) % 5;
+            pipelineStep.value = (pipelineStep.value + 1) % 5;
+          }, 1500));
+
+          // 实时流更新
+          const flags = ['🇺🇸', '🇨🇳', '🇩🇪', '🇯🇵', '🇰🇷', '🇬🇧', '🇫🇷', '🇨🇦', '🇦🇺', '🇮🇳'];
+          const texts = [
+            '检测到 Spectre V2 (Intel i7)',
+            '发现 L1TF 漏洞 (Xeon E5)',
+            '上传代码检测出 3处时序侧信道风险',
+            'EXP演示成功：Cache Timing Attack',
+            '检测到 ZombieLoad 变种',
+            'AI分析完成：发现2个潜在漏洞点',
+            'Retbleed POC验证成功 (Ryzen 7)',
+            'Foreshadow攻击演示完成'
+          ];
+
+          timers.push(setInterval(() => {
+            const newItem = {
+              flag: flags[Math.floor(Math.random() * flags.length)],
+              text: texts[Math.floor(Math.random() * texts.length)],
+              time: '刚刚',
+              status: '✅',
+              type: 'success'
+            };
+            streamData.value.unshift(newItem);
+            if (streamData.value.length > 10) {
+              streamData.value.pop();
+            }
+          }, 5000));
+        });
+
+        onUnmounted(() => {
+          timers.forEach(t => clearInterval(t));
+        });
+
+        return {
+          currentView,
+          animatedStats,
+          systemStatus,
+          pocList,
+          heatmapData,
+          streamData,
+          showModal,
+          selectedPoc,
+          currentCodeLine,
+          pipelineStep,
+          streamList,
+          showPocDetail,
+          startQuickScan
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
