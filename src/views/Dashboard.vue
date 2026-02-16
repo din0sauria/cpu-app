@@ -27,7 +27,7 @@ const pieChartRef = ref(null)
 const barChartRef = ref(null)
 const mapChartRef = ref(null)
 let streamInterval = null
-let mapUpdateInterval = null
+let scanInterval = null
 let currentPipelineStep = 0
 let currentCodeLine = 0
 
@@ -46,13 +46,27 @@ const attackGenSteps = [
   { icon: '✅', label: '验证测试' }
 ]
 
-const codeLines = [
-  { text: '// 代码上传完成', type: 'comment' },
-  { text: '正在进行词法分析...', type: 'instr' },
-  { text: '匹配已知漏洞模式', type: 'instr' },
-  { text: '计算风险等级分数', type: 'instr' },
-  { text: '生成漏洞分析报告', type: 'comment' }
+const vulnerableCodeLines = [
+  { lineNum: 1, text: 'void check_access(size_t index) {', type: 'normal' },
+  { lineNum: 2, text: '  if (index < array_size) {', type: 'normal' },
+  { lineNum: 3, text: '    char value = array[index];', type: 'vulnerable', vuln: '边界检查绕过' },
+  { lineNum: 4, text: '    temp &= cache[value * 4096];', type: 'vulnerable', vuln: 'Cache侧信道' },
+  { lineNum: 5, text: '  }', type: 'normal' },
+  { lineNum: 6, text: '  return 0;', type: 'normal' },
+  { lineNum: 7, text: '}', type: 'normal' }
 ]
+
+let scanLineIndex = 0
+
+const updateScanLine = () => {
+  vulnerableCodeLines.forEach((line, idx) => {
+    line.type = idx < scanLineIndex ? 'scanned' : (idx === scanLineIndex ? 'scanning' : 'pending')
+  })
+  scanLineIndex = (scanLineIndex + 1) % (vulnerableCodeLines.length + 2)
+  if (scanLineIndex > vulnerableCodeLines.length) {
+    scanLineIndex = 0
+  }
+}
 
 const animateNumber = (target, key, endValue, duration = 2000) => {
   const startTime = Date.now()
@@ -331,37 +345,28 @@ const initMapChart = () => {
   
   const chart = echarts.init(mapChartRef.value)
   
-  const provinces = [
-    { name: '北京市', baseValue: 95 },
-    { name: '上海市', baseValue: 88 },
-    { name: '广东省', baseValue: 82 },
-    { name: '浙江省', baseValue: 65 },
-    { name: '江苏省', baseValue: 60 },
-    { name: '四川省', baseValue: 55 },
-    { name: '湖北省', baseValue: 50 },
-    { name: '福建省', baseValue: 45 },
-    { name: '山东省', baseValue: 42 },
-    { name: '陕西省', baseValue: 38 },
-    { name: '河南省', baseValue: 35 },
-    { name: '辽宁省', baseValue: 30 },
-    { name: '湖南省', baseValue: 28 },
-    { name: '安徽省', baseValue: 25 },
-    { name: '河北省', baseValue: 22 }
+  const chinaMapData = [
+    { name: '北京市', value: 95 },
+    { name: '上海市', value: 88 },
+    { name: '广东省', value: 82 },
+    { name: '浙江省', value: 65 },
+    { name: '江苏省', value: 60 },
+    { name: '四川省', value: 55 },
+    { name: '湖北省', value: 50 },
+    { name: '福建省', value: 45 },
+    { name: '山东省', value: 42 },
+    { name: '陕西省', value: 38 },
+    { name: '河南省', value: 35 },
+    { name: '辽宁省', value: 30 },
+    { name: '湖南省', value: 28 },
+    { name: '安徽省', value: 25 },
+    { name: '河北省', value: 22 }
   ]
-
-  const generateRandomData = () => {
-    return provinces.map(p => ({
-      name: p.name,
-      value: Math.max(1, Math.floor(p.baseValue + Math.random() * 20 - 10))
-    }))
-  }
 
   fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json')
     .then(response => response.json())
     .then(geoJson => {
       echarts.registerMap('china', geoJson)
-      
-      const chinaMapData = generateRandomData()
 
       const option = {
         tooltip: {
@@ -372,8 +377,8 @@ const initMapChart = () => {
         },
         visualMap: {
           min: 0,
-          max: 110,
-        //   text: ['高', '低'],
+          max: 100,
+          text: ['高', '低'],
           realtime: false,
           calculable: true,
           inRange: {
@@ -387,7 +392,7 @@ const initMapChart = () => {
           name: '下载量',
           type: 'map',
           map: 'china',
-          roam: false,
+          roam: true,
           zoom: 1.2,
           label: {
             show: false
@@ -407,17 +412,6 @@ const initMapChart = () => {
       }
       
       chart.setOption(option)
-
-      setTimeout(() => {
-        mapUpdateInterval = setInterval(() => {
-          const newData = generateRandomData()
-          chart.setOption({
-            series: [{
-              data: newData
-            }]
-          })
-        }, 3000)
-      }, 1000)
     })
     .catch(err => {
       console.error('Failed to load China map:', err)
@@ -445,8 +439,12 @@ onMounted(() => {
 
   setInterval(() => {
     currentPipelineStep = (currentPipelineStep + 1) % 5
-    currentCodeLine = (currentCodeLine + 1) % 5
   }, 2000)
+
+  updateScanLine()
+  scanInterval = setInterval(() => {
+    updateScanLine()
+  }, 1500)
 
   const cities = ['北京', '上海', '广东', '浙江', '江苏', '四川', '湖北', '福建', '山东', '陕西']
   const vulnNames = ['Spectre V1', 'Meltdown', 'Foreshadow', 'ZombieLoad', 'Retbleed', 'RIDL', 'CacheOut', 'BHI']
@@ -471,7 +469,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (streamInterval) clearInterval(streamInterval)
-  if (mapUpdateInterval) clearInterval(mapUpdateInterval)
+  if (scanInterval) clearInterval(scanInterval)
 })
 </script>
 
@@ -538,39 +536,61 @@ onUnmounted(() => {
         <div ref="heatmapChartRef" class="chart-container"></div>
       </div>
 
+            <!-- 漏洞资源知识库 -->
+      <div class="glass-card poc-card">
+        <div class="card-header">
+          <h3 class="card-title">🎯 漏洞资源知识库</h3>
+          <span class="card-badge">{{ vulnStore.stats.totalPocs }} POCs | {{ vulnStore.stats.totalExps }} EXPs</span>
+        </div>
+        <div class="poc-grid">
+          <div 
+            v-for="vuln in vulnStore.vulnerabilities.slice(0, 12)" 
+            :key="vuln.id" 
+            class="poc-item"
+            :class="vuln.riskLevel"
+          >
+            <div class="poc-name">{{ vuln.name }}</div>
+            <div class="poc-type">{{ vuln.attackType }}</div>
+            <span class="poc-risk" :class="vuln.riskLevel">{{ vuln.riskText }}</span>
+          </div>
+        </div>
+      </div>
+
+
       <!-- 趋势图 -->
       <div class="glass-card trend-card">
         <div class="card-header">
           <h3 class="card-title">📈 漏洞资源增长趋势</h3>
           <span class="card-badge">本周数据</span>
         </div>
-        <div ref="trendChartRef" class="chart-container"></div>
+        <div ref="trendChartRef" class="chart-container" style="height: 300px;"></div>
       </div>
 
-      <!-- 中国地图 -->
-      <div class="glass-card map-card">
-        <div class="card-header">
-          <h3 class="card-title">🗺️ 中国POC/EXP今日下载分布</h3>
-          <span class="card-badge">按省份统计</span>
-        </div>
-        <div ref="mapChartRef" class="chart-container"></div>
-      </div>
+
 
       <!-- AI分析流程示意 -->
       <div class="glass-card ai-pipeline-card">
         <div class="card-header">
           <h3 class="card-title">🤖 AI漏洞分析流程示意</h3>
-          <span class="card-badge">流程展示</span>
+          <span class="card-badge">代码扫描</span>
         </div>
         
-        <div class="code-window">
-          <div 
-            v-for="(line, idx) in codeLines" 
-            :key="idx" 
-            class="code-line"
-            :class="{highlight: currentCodeLine === idx}"
-          >
-            <span :class="line.type === 'comment' ? 'code-comment' : 'code-instr'">{{ line.text }}</span>
+        <div class="scan-code-window">
+          <div class="scan-header">
+            <span class="file-name">vulnerable_code.c</span>
+            <span class="scan-status" v-if="vulnerableCodeLines.some(l => l.type === 'scanning')">🔍 扫描中...</span>
+          </div>
+          <div class="code-lines">
+            <div 
+              v-for="line in vulnerableCodeLines" 
+              :key="line.lineNum" 
+              class="code-line-item"
+              :class="line.type"
+            >
+              <span class="line-num">{{ line.lineNum }}</span>
+              <span class="line-text">{{ line.text }}</span>
+              <span v-if="line.vuln" class="vuln-tag">{{ line.vuln }}</span>
+            </div>
           </div>
         </div>
 
@@ -612,25 +632,6 @@ onUnmounted(() => {
 
 
 
-      <!-- 漏洞资源知识库 -->
-      <div class="glass-card poc-card">
-        <div class="card-header">
-          <h3 class="card-title">🎯 漏洞资源知识库</h3>
-          <span class="card-badge">{{ vulnStore.stats.totalPocs }} POCs | {{ vulnStore.stats.totalExps }} EXPs</span>
-        </div>
-        <div class="poc-grid">
-          <div 
-            v-for="vuln in vulnStore.vulnerabilities.slice(0, 12)" 
-            :key="vuln.id" 
-            class="poc-item"
-            :class="vuln.riskLevel"
-          >
-            <div class="poc-name">{{ vuln.name }}</div>
-            <div class="poc-type">{{ vuln.attackType }}</div>
-            <span class="poc-risk" :class="vuln.riskLevel">{{ vuln.riskText }}</span>
-          </div>
-        </div>
-      </div>
 
       <!-- 全球POC/EXP更新实时流 -->
       <div class="glass-card stream-card">
@@ -652,6 +653,15 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- 中国地图 - 独占一行 -->
+      <div class="glass-card map-card-full">
+        <div class="card-header">
+          <h3 class="card-title">🗺️ 中国POC/EXP下载分布</h3>
+          <span class="card-badge">按省份统计</span>
+        </div>
+        <div ref="mapChartRef" class="map-container"></div>
       </div>
     </div>
   </div>
@@ -752,6 +762,104 @@ onUnmounted(() => {
   margin: 15px 0;
 }
 
+.scan-code-window {
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  margin: 15px 0;
+  overflow: hidden;
+}
+
+.scan-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(0, 212, 255, 0.1);
+  border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+}
+
+.file-name {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: var(--secondary);
+}
+
+.scan-status {
+  font-size: 11px;
+  color: var(--warning);
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0.5; }
+}
+
+.code-lines {
+  padding: 8px 0;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+}
+
+.code-line-item {
+  display: flex;
+  align-items: center;
+  padding: 3px 12px;
+  transition: all 0.3s;
+}
+
+.code-line-item.pending {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.code-line-item.scanning {
+  color: var(--warning);
+  background: rgba(255, 170, 0, 0.1);
+}
+
+.code-line-item.scanning .line-num {
+  color: var(--warning);
+}
+
+.code-line-item.scanned {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.code-line-item.scanned .line-num {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.code-line-item.vulnerable {
+  color: var(--danger);
+}
+
+.code-line-item.vulnerable .line-num {
+  color: var(--danger);
+}
+
+.line-num {
+  width: 28px;
+  color: rgba(255, 255, 255, 0.3);
+  text-align: right;
+  padding-right: 12px;
+  user-select: none;
+}
+
+.line-text {
+  flex: 1;
+}
+
+.vuln-tag {
+  margin-left: 8px;
+  padding: 1px 6px;
+  background: rgba(255, 51, 102, 0.2);
+  color: var(--danger);
+  border-radius: 4px;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
 .code-line {
   padding: 4px 8px;
   color: rgba(255, 255, 255, 0.7);
@@ -841,6 +949,16 @@ onUnmounted(() => {
 .map-card {
   grid-column: span 6;
   min-height: 280px;
+}
+
+.map-card-full {
+  grid-column: span 12;
+  min-height: 450px;
+}
+
+.map-container {
+  width: 100%;
+  height: 380px;
 }
 
 .poc-card {
