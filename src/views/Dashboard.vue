@@ -6,6 +6,58 @@ import { useVulnStore } from '../stores/vulnStore'
 
 const vulnStore = useVulnStore()
 
+const globalData = ref([
+  { name: 'China', value: 95, coord: [116.46, 39.92] },
+  { name: 'United States', value: 88, coord: [-95.71, 37.09] },
+  { name: 'Russia', value: 75, coord: [105.32, 61.52] },
+  { name: 'Germany', value: 65, coord: [10.45, 51.17] },
+  { name: 'Japan', value: 60, coord: [138.25, 36.20] },
+  { name: 'United Kingdom', value: 55, coord: [-3.44, 55.38] },
+  { name: 'France', value: 52, coord: [2.21, 46.23] },
+  { name: 'India', value: 48, coord: [78.96, 20.59] },
+  { name: 'Brazil', value: 42, coord: [-51.93, -14.24] },
+  { name: 'Australia', value: 38, coord: [133.78, -25.27] },
+  { name: 'Canada', value: 35, coord: [-106.35, 56.13] },
+  { name: 'South Korea', value: 32, coord: [127.85, 35.91] },
+  { name: 'Netherlands', value: 28, coord: [5.29, 52.13] },
+  { name: 'Italy', value: 25, coord: [12.57, 41.87] },
+  { name: 'Spain', value: 22, coord: [-3.75, 40.46] },
+  { name: 'Mexico', value: 20, coord: [-102.55, 23.63] },
+  { name: 'Indonesia', value: 18, coord: [113.92, -0.79] },
+  { name: 'Saudi Arabia', value: 17, coord: [45.08, 23.89] },
+  { name: 'Turkey', value: 16, coord: [35.24, 38.96] },
+  { name: 'Switzerland', value: 15, coord: [8.23, 46.82] },
+  { name: 'Poland', value: 14, coord: [19.94, 51.92] },
+  { name: 'Belgium', value: 13, coord: [4.47, 50.50] },
+  { name: 'Sweden', value: 12, coord: [18.64, 60.13] },
+  { name: 'Argentina', value: 11, coord: [-63.62, -38.42] },
+  { name: 'South Africa', value: 10, coord: [22.94, -30.56] },
+  { name: 'Austria', value: 9, coord: [14.55, 47.52] },
+  { name: 'Norway', value: 8, coord: [8.47, 60.47] },
+  { name: 'United Arab Emirates', value: 8, coord: [53.85, 23.42] },
+  { name: 'Thailand', value: 7, coord: [100.99, 15.87] },
+  { name: 'Ireland', value: 7, coord: [-8.24, 53.41] },
+  { name: 'Israel', value: 6, coord: [34.85, 31.05] },
+  { name: 'Denmark', value: 6, coord: [9.50, 56.26] },
+  { name: 'Singapore', value: 5, coord: [103.82, 1.35] },
+  { name: 'Malaysia', value: 5, coord: [101.98, 4.21] },
+  { name: 'Philippines', value: 5, coord: [121.77, 12.88] },
+  { name: 'Vietnam', value: 4, coord: [108.28, 14.06] },
+  { name: 'Egypt', value: 4, coord: [30.80, 26.82] },
+  { name: 'Pakistan', value: 4, coord: [69.35, 30.38] },
+  { name: 'Nigeria', value: 3, coord: [8.68, 9.08] },
+  { name: 'Colombia', value: 3, coord: [-74.30, 4.71] },
+  { name: 'Chile', value: 3, coord: [-71.57, -35.68] },
+  { name: 'Finland', value: 2, coord: [25.75, 61.92] },
+  { name: 'Portugal', value: 2, coord: [-8.22, 39.40] },
+  { name: 'Greece', value: 2, coord: [21.82, 39.07] },
+  { name: 'Czech Republic', value: 2, coord: [14.44, 49.82] },
+  { name: 'New Zealand', value: 1, coord: [174.89, -40.90] },
+  { name: 'Hungary', value: 1, coord: [19.50, 47.16] },
+  { name: 'Ukraine', value: 1, coord: [31.17, 48.38] },
+  { name: 'Romania', value: 1, coord: [24.97, 45.94] }
+])
+
 const animatedStats = reactive({
   hosts: 0,
   vulns: 0,
@@ -348,64 +400,11 @@ const initMapChart = () => {
   
   const ROOT_PATH = 'https://cdn.jsdelivr.net/gh/apache/echarts-website@asf-site/examples'
   
-  const globalData = [
-    { name: 'China', value: 95, coord: [116.46, 39.92] },
-    { name: 'United States', value: 88, coord: [-95.71, 37.09] },
-    { name: 'Russia', value: 75, coord: [105.32, 61.52] },
-    { name: 'Germany', value: 65, coord: [10.45, 51.17] },
-    { name: 'Japan', value: 60, coord: [138.25, 36.20] },
-    { name: 'United Kingdom', value: 55, coord: [-3.44, 55.38] },
-    { name: 'France', value: 52, coord: [2.21, 46.23] },
-    { name: 'India', value: 48, coord: [78.96, 20.59] },
-    { name: 'Brazil', value: 42, coord: [-51.93, -14.24] },
-    { name: 'Australia', value: 38, coord: [133.78, -25.27] },
-    { name: 'Canada', value: 35, coord: [-106.35, 56.13] },
-    { name: 'South Korea', value: 32, coord: [127.85, 35.91] },
-    { name: 'Netherlands', value: 28, coord: [5.29, 52.13] },
-    { name: 'Italy', value: 25, coord: [12.57, 41.87] },
-    { name: 'Spain', value: 22, coord: [-3.75, 40.46] },
-    { name: 'Mexico', value: 20, coord: [-102.55, 23.63] },
-    { name: 'Indonesia', value: 18, coord: [113.92, -0.79] },
-    { name: 'Saudi Arabia', value: 17, coord: [45.08, 23.89] },
-    { name: 'Turkey', value: 16, coord: [35.24, 38.96] },
-    { name: 'Switzerland', value: 15, coord: [8.23, 46.82] },
-    { name: 'Poland', value: 14, coord: [19.94, 51.92] },
-    { name: 'Belgium', value: 13, coord: [4.47, 50.50] },
-    { name: 'Sweden', value: 12, coord: [18.64, 60.13] },
-    { name: 'Argentina', value: 11, coord: [-63.62, -38.42] },
-    { name: 'South Africa', value: 10, coord: [22.94, -30.56] },
-    { name: 'Austria', value: 9, coord: [14.55, 47.52] },
-    { name: 'Norway', value: 8, coord: [8.47, 60.47] },
-    { name: 'United Arab Emirates', value: 8, coord: [53.85, 23.42] },
-    { name: 'Thailand', value: 7, coord: [100.99, 15.87] },
-    { name: 'Ireland', value: 7, coord: [-8.24, 53.41] },
-    { name: 'Israel', value: 6, coord: [34.85, 31.05] },
-    { name: 'Denmark', value: 6, coord: [9.50, 56.26] },
-    { name: 'Singapore', value: 5, coord: [103.82, 1.35] },
-    { name: 'Malaysia', value: 5, coord: [101.98, 4.21] },
-    { name: 'Philippines', value: 5, coord: [121.77, 12.88] },
-    { name: 'Vietnam', value: 4, coord: [108.28, 14.06] },
-    { name: 'Egypt', value: 4, coord: [30.80, 26.82] },
-    { name: 'Pakistan', value: 4, coord: [69.35, 30.38] },
-    { name: 'Nigeria', value: 3, coord: [8.68, 9.08] },
-    { name: 'Colombia', value: 3, coord: [-74.30, 4.71] },
-    { name: 'Chile', value: 3, coord: [-71.57, -35.68] },
-    { name: 'Finland', value: 2, coord: [25.75, 61.92] },
-    { name: 'Portugal', value: 2, coord: [-8.22, 39.40] },
-    { name: 'Greece', value: 2, coord: [21.82, 39.07] },
-    { name: 'Czech Republic', value: 2, coord: [14.44, 49.82] },
-    { name: 'New Zealand', value: 1, coord: [174.89, -40.90] },
-    { name: 'Hungary', value: 1, coord: [19.50, 47.16] },
-    { name: 'Ukraine', value: 1, coord: [31.17, 48.38] },
-    { name: 'Romania', value: 1, coord: [24.97, 45.94] }
-  ]
-
   const option = {
     backgroundColor: '#000',
     globe: {
       baseTexture: ROOT_PATH + '/data-gl/asset/earth.jpg',
-      shading: 'lambert',
-      environment: ROOT_PATH + '/data-gl/asset/starfield.jpg',
+      shading: 'color',
       atmosphere: {
         show: false
       },
@@ -424,18 +423,21 @@ const initMapChart = () => {
       dimension: 2,
       min: 0,
       max: 100,
+      calculable: true,
       inRange: {
         color: ['#ff3366', '#ffaa00', '#00d4ff', '#00ff9d']
       },
-      text: ['高', '低'],
-      textStyle: { color: '#fff' },
-      right: 20,
-      top: 'center'
+      text: ['100次', '0次'],
+      textStyle: { color: '#fff', fontSize: 10 },
+      right: 30,
+      top: 'center',
+      itemWidth: 15,
+      itemHeight: 200
     },
     series: [{
       type: 'bar3D',
       coordinateSystem: 'globe',
-      data: globalData.map(item => ({
+      data: globalData.value.map(item => ({
         name: item.name,
         value: [...item.coord, item.value]
       })),
@@ -699,13 +701,30 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- 中国地图 - 独占一行 -->
+      <!-- 全球地图 + 排行榜 -->
       <div class="glass-card map-card-full">
         <div class="card-header">
           <h3 class="card-title">🌍 全球POC/EXP下载分布</h3>
           <span class="card-badge">全球分布</span>
         </div>
-        <div ref="mapChartRef" class="map-container"></div>
+        <div class="map-split-container">
+          <div class="ranking-panel">
+            <div class="ranking-title">📊 下载量TOP10</div>
+            <div class="ranking-list">
+              <div 
+                v-for="(item, idx) in globalData.slice(0, 10)" 
+                :key="item.name" 
+                class="ranking-item"
+                :class="{top3: idx < 3}"
+              >
+                <span class="rank-num" :class="'rank-' + (idx + 1)">{{ idx + 1 }}</span>
+                <span class="rank-name">{{ item.name }}</span>
+                <span class="rank-value">{{ item.value }}</span>
+              </div>
+            </div>
+          </div>
+          <div ref="mapChartRef" class="map-container"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -1000,9 +1019,97 @@ onUnmounted(() => {
   min-height: 450px;
 }
 
-.map-container {
-  width: 100%;
+.map-split-container {
+  display: flex;
+  gap: 20px;
   height: 380px;
+  margin-top: 15px;
+}
+
+.ranking-panel {
+  width: 280px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  padding: 15px;
+  flex-shrink: 0;
+}
+
+.ranking-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+}
+
+.ranking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ranking-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  transition: all 0.3s;
+}
+
+.ranking-item:hover {
+  background: rgba(0, 212, 255, 0.1);
+}
+
+.ranking-item.top3 {
+  background: rgba(0, 212, 255, 0.15);
+}
+
+.rank-num {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.rank-num.rank-1 {
+  background: linear-gradient(135deg, #ffd700, #ffaa00);
+  color: #000;
+}
+
+.rank-num.rank-2 {
+  background: linear-gradient(135deg, #c0c0c0, #a0a0a0);
+  color: #000;
+}
+
+.rank-num.rank-3 {
+  background: linear-gradient(135deg, #cd7f32, #b87333);
+  color: #000;
+}
+
+.rank-name {
+  flex: 1;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.rank-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--secondary);
+}
+
+.map-container {
+  flex: 1;
+  height: 100%;
 }
 
 .poc-card {
