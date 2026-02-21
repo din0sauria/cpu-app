@@ -1,6 +1,7 @@
 <script setup>
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
+import 'echarts-gl'
 import { useVulnStore } from '../stores/vulnStore'
 
 const vulnStore = useVulnStore()
@@ -345,78 +346,119 @@ const initMapChart = () => {
   
   const chart = echarts.init(mapChartRef.value)
   
-  const chinaMapData = [
-    { name: '北京市', value: 95 },
-    { name: '上海市', value: 88 },
-    { name: '广东省', value: 82 },
-    { name: '浙江省', value: 65 },
-    { name: '江苏省', value: 60 },
-    { name: '四川省', value: 55 },
-    { name: '湖北省', value: 50 },
-    { name: '福建省', value: 45 },
-    { name: '山东省', value: 42 },
-    { name: '陕西省', value: 38 },
-    { name: '河南省', value: 35 },
-    { name: '辽宁省', value: 30 },
-    { name: '湖南省', value: 28 },
-    { name: '安徽省', value: 25 },
-    { name: '河北省', value: 22 }
+  const ROOT_PATH = 'https://cdn.jsdelivr.net/gh/apache/echarts-website@asf-site/examples'
+  
+  const globalData = [
+    { name: 'China', value: 95, coord: [116.46, 39.92] },
+    { name: 'United States', value: 88, coord: [-95.71, 37.09] },
+    { name: 'Russia', value: 75, coord: [105.32, 61.52] },
+    { name: 'Germany', value: 65, coord: [10.45, 51.17] },
+    { name: 'Japan', value: 60, coord: [138.25, 36.20] },
+    { name: 'United Kingdom', value: 55, coord: [-3.44, 55.38] },
+    { name: 'France', value: 52, coord: [2.21, 46.23] },
+    { name: 'India', value: 48, coord: [78.96, 20.59] },
+    { name: 'Brazil', value: 42, coord: [-51.93, -14.24] },
+    { name: 'Australia', value: 38, coord: [133.78, -25.27] },
+    { name: 'Canada', value: 35, coord: [-106.35, 56.13] },
+    { name: 'South Korea', value: 32, coord: [127.85, 35.91] },
+    { name: 'Netherlands', value: 28, coord: [5.29, 52.13] },
+    { name: 'Italy', value: 25, coord: [12.57, 41.87] },
+    { name: 'Spain', value: 22, coord: [-3.75, 40.46] },
+    { name: 'Mexico', value: 20, coord: [-102.55, 23.63] },
+    { name: 'Indonesia', value: 18, coord: [113.92, -0.79] },
+    { name: 'Saudi Arabia', value: 17, coord: [45.08, 23.89] },
+    { name: 'Turkey', value: 16, coord: [35.24, 38.96] },
+    { name: 'Switzerland', value: 15, coord: [8.23, 46.82] },
+    { name: 'Poland', value: 14, coord: [19.94, 51.92] },
+    { name: 'Belgium', value: 13, coord: [4.47, 50.50] },
+    { name: 'Sweden', value: 12, coord: [18.64, 60.13] },
+    { name: 'Argentina', value: 11, coord: [-63.62, -38.42] },
+    { name: 'South Africa', value: 10, coord: [22.94, -30.56] },
+    { name: 'Austria', value: 9, coord: [14.55, 47.52] },
+    { name: 'Norway', value: 8, coord: [8.47, 60.47] },
+    { name: 'United Arab Emirates', value: 8, coord: [53.85, 23.42] },
+    { name: 'Thailand', value: 7, coord: [100.99, 15.87] },
+    { name: 'Ireland', value: 7, coord: [-8.24, 53.41] },
+    { name: 'Israel', value: 6, coord: [34.85, 31.05] },
+    { name: 'Denmark', value: 6, coord: [9.50, 56.26] },
+    { name: 'Singapore', value: 5, coord: [103.82, 1.35] },
+    { name: 'Malaysia', value: 5, coord: [101.98, 4.21] },
+    { name: 'Philippines', value: 5, coord: [121.77, 12.88] },
+    { name: 'Vietnam', value: 4, coord: [108.28, 14.06] },
+    { name: 'Egypt', value: 4, coord: [30.80, 26.82] },
+    { name: 'Pakistan', value: 4, coord: [69.35, 30.38] },
+    { name: 'Nigeria', value: 3, coord: [8.68, 9.08] },
+    { name: 'Colombia', value: 3, coord: [-74.30, 4.71] },
+    { name: 'Chile', value: 3, coord: [-71.57, -35.68] },
+    { name: 'Finland', value: 2, coord: [25.75, 61.92] },
+    { name: 'Portugal', value: 2, coord: [-8.22, 39.40] },
+    { name: 'Greece', value: 2, coord: [21.82, 39.07] },
+    { name: 'Czech Republic', value: 2, coord: [14.44, 49.82] },
+    { name: 'New Zealand', value: 1, coord: [174.89, -40.90] },
+    { name: 'Hungary', value: 1, coord: [19.50, 47.16] },
+    { name: 'Ukraine', value: 1, coord: [31.17, 48.38] },
+    { name: 'Romania', value: 1, coord: [24.97, 45.94] }
   ]
 
-  fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json')
-    .then(response => response.json())
-    .then(geoJson => {
-      echarts.registerMap('china', geoJson)
-
-      const option = {
-        tooltip: {
-          trigger: 'item',
-          formatter: function(params) {
-            return params.name + '<br/>下载量: ' + params.value + ' 次'
-          }
+  const option = {
+    backgroundColor: '#000',
+    globe: {
+      baseTexture: ROOT_PATH + '/data-gl/asset/earth.jpg',
+      shading: 'lambert',
+      environment: ROOT_PATH + '/data-gl/asset/starfield.jpg',
+      atmosphere: {
+        show: false
+      },
+      light: {
+        ambient: {
+          intensity: 0.3
         },
-        visualMap: {
-          min: 0,
-          max: 100,
-          text: ['高', '低'],
-          realtime: false,
-          calculable: true,
-          inRange: {
-            color: ['rgba(0,212,255,0.3)', 'rgba(0,212,255,0.6)', '#00d4ff']
-          },
-          textStyle: { color: '#fff' },
-          left: 'left',
-          bottom: '10%'
-        },
-        series: [{
-          name: '下载量',
-          type: 'map',
-          map: 'china',
-          roam: true,
-          zoom: 1.2,
-          label: {
-            show: false
-          },
-          itemStyle: {
-            areaColor: 'rgba(0, 212, 255, 0.2)',
-            borderColor: 'rgba(0, 212, 255, 0.5)'
-          },
-          emphasis: {
-            label: { show: true, color: '#fff' },
-            itemStyle: {
-              areaColor: 'rgba(0, 255, 157, 0.4)'
-            }
-          },
-          data: chinaMapData
-        }]
+        main: {
+          intensity: 1
+        }
+      },
+      silent: true
+    },
+    visualMap: {
+      show: true,
+      dimension: 2,
+      min: 0,
+      max: 100,
+      inRange: {
+        color: ['#ff3366', '#ffaa00', '#00d4ff', '#00ff9d']
+      },
+      text: ['高', '低'],
+      textStyle: { color: '#fff' },
+      right: 20,
+      top: 'center'
+    },
+    series: [{
+      type: 'bar3D',
+      coordinateSystem: 'globe',
+      data: globalData.map(item => ({
+        name: item.name,
+        value: [...item.coord, item.value]
+      })),
+      barSize: 4,
+      minHeight: 0.5,
+      maxHeight: 25,
+      shading: 'color',
+      itemStyle: {
+        opacity: 0.9
+      },
+      emphasis: {
+        disabled: true
       }
-      
-      chart.setOption(option)
-    })
-    .catch(err => {
-      console.error('Failed to load China map:', err)
-    })
+    }],
+    tooltip: {
+      trigger: 'item',
+      formatter: function(params) {
+        return params.name + '<br/>下载量: ' + params.value[2] + ' 次'
+      }
+    }
+  }
   
+  chart.setOption(option)
   window.addEventListener('resize', () => chart.resize())
 }
 
@@ -658,8 +700,8 @@ onUnmounted(() => {
       <!-- 中国地图 - 独占一行 -->
       <div class="glass-card map-card-full">
         <div class="card-header">
-          <h3 class="card-title">🗺️ 中国POC/EXP下载分布</h3>
-          <span class="card-badge">按省份统计</span>
+          <h3 class="card-title">🌍 全球POC/EXP下载分布</h3>
+          <span class="card-badge">全球分布</span>
         </div>
         <div ref="mapChartRef" class="map-container"></div>
       </div>

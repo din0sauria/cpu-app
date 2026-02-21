@@ -12,6 +12,7 @@
     "@jiaminghi/data-view": "^2.10.0",
     "@vueuse/core": "^14.2.1",
     "echarts": "^6.0.0",
+    "echarts-gl": "^2.0.9",
     "markdown-it": "^14.1.1",
     "pinia": "^3.0.4",
     "three": "^0.182.0",
