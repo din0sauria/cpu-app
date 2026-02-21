@@ -427,7 +427,7 @@ const initMapChart = () => {
       inRange: {
         color: ['#ff3366', '#ffaa00', '#00d4ff', '#00ff9d']
       },
-      text: ['100次', '0次'],
+      text: ['下载量高', '下载量低'],
       textStyle: { color: '#fff', fontSize: 10 },
       right: 30,
       top: 'center',
@@ -1047,6 +1047,27 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  max-height: 310px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+.ranking-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.ranking-list::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+}
+
+.ranking-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 212, 255, 0.4);
+  border-radius: 2px;
+}
+
+.ranking-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 212, 255, 0.6);
 }
 
 .ranking-item {
