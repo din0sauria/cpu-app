@@ -442,12 +442,14 @@ const initMapChart = () => {
       barSize: 4,
       minHeight: 0.5,
       maxHeight: 25,
-      shading: 'color',
+      shading: 'lambert',
       itemStyle: {
         opacity: 0.9
       },
       emphasis: {
-        disabled: true
+        itemStyle: {
+          opacity: 1
+        }
       }
     }],
     tooltip: {
