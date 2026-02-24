@@ -1256,5 +1256,20 @@ onUnmounted(() => {
   .pie-card, .bar-card, .heatmap-card, .trend-card, .ai-pipeline-card, .exp-gen-card, .map-card, .stream-card, .poc-card {
     grid-column: span 12;
   }
+
+  .map-split-container{
+    flex-direction: column;
+    height: 800px;
+  }
+
+  .ranking-panel {
+    width: 100%;
+    max-height: 350px;
+    overflow: hidden;
+  }
+
+  .map-container {
+    min-height: 400px;
+  }
 }
 </style>
