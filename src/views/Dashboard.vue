@@ -3,9 +3,10 @@ import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import 'echarts-gl'
 import { useVulnStore } from '../stores/vulnStore'
+import earthImage from '../assets/earth.jpg'
 
 const vulnStore = useVulnStore()
-
+/*
 const globalData = ref([
   { name: 'China', value: 95, coord: [116.46, 39.92] },
   { name: 'United States', value: 88, coord: [-95.71, 37.09] },
@@ -57,7 +58,7 @@ const globalData = ref([
   { name: 'Ukraine', value: 1, coord: [31.17, 48.38] },
   { name: 'Romania', value: 1, coord: [24.97, 45.94] }
 ])
-
+*/
 const animatedStats = reactive({
   hosts: 0,
   vulns: 0,
@@ -144,7 +145,7 @@ const initHeatmapChart = () => {
   
   const chart = echarts.init(heatmapChartRef.value)
   
-  const cpus = ['Intel i9', 'AMD Ryzen 9', 'Apple M2', 'Xeon E5']
+  const cpus = ['Intel', 'AMD', 'Apple M', '其他']
   const oss = ['Windows', 'Linux', 'macOS', '其他']
   const data = [
     [0,0],[0,1],[0,2],[0,3],
@@ -392,7 +393,7 @@ const initBarChart = () => {
   chart.setOption(option)
   window.addEventListener('resize', () => chart.resize())
 }
-
+/*
 const initMapChart = () => {
   if (!mapChartRef.value) return
   
@@ -403,7 +404,8 @@ const initMapChart = () => {
   const option = {
     backgroundColor: '#000',
     globe: {
-      baseTexture: ROOT_PATH + '/data-gl/asset/earth.jpg',
+      //baseTexture: ROOT_PATH + '/data-gl/asset/earth.jpg',
+      baseTexture: earthImage,
       shading: 'color',
       atmosphere: {
         show: false
@@ -465,7 +467,7 @@ const initMapChart = () => {
   chart.setOption(option)
   window.addEventListener('resize', () => chart.resize())
 }
-
+*/
 onMounted(() => {
   setTimeout(() => {
     animateNumber(animatedStats, 'hosts', vulnStore.stats.totalHosts)
@@ -480,7 +482,7 @@ onMounted(() => {
     initTrendChart()
     initPieChart()
     initBarChart()
-    initMapChart()
+    //initMapChart()
   })
 
   setInterval(() => {
@@ -702,6 +704,8 @@ onUnmounted(() => {
       </div>
 
       <!-- 全球地图 + 排行榜 -->
+<!-- 
+      
       <div class="glass-card map-card-full">
         <div class="card-header">
           <h3 class="card-title">🌍 全球POC/EXP下载分布</h3>
@@ -726,6 +730,7 @@ onUnmounted(() => {
           <div ref="mapChartRef" class="map-container"></div>
         </div>
       </div>
+       -->
     </div>
   </div>
 </template>
