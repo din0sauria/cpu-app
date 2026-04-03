@@ -77,7 +77,8 @@ void process_request(size_t user_index) {
       osSupport: ['Linux', 'Windows', 'macOS'],
       successRate: '98.7%',
       avgTime: '12.3ms',
-      tags: ['Spectre', 'Cache侧信道', '分支预测']
+      tags: ['Spectre', 'Cache侧信道', '分支预测'],
+      runSupport: true
     },
     {
       id: 2,
@@ -122,7 +123,8 @@ void kernel_copy_to_user(void *dest, void *src, size_t len) {
       osSupport: ['Linux', 'Windows'],
       successRate: '99.2%',
       avgTime: '8.5ms',
-      tags: ['Meltdown', '乱序执行', '内核泄露']
+      tags: ['Meltdown', '乱序执行', '内核泄露'],
+      runSupport: true
     },
     {
       id: 3,
@@ -162,7 +164,8 @@ void enclave_secret_operation() {
       osSupport: ['Linux', 'Windows'],
       successRate: '95.4%',
       avgTime: '15.2ms',
-      tags: ['Foreshadow', 'SGX', 'L1终端故障']
+      tags: ['Foreshadow', 'SGX', 'L1终端故障'],
+      runSupport: false
     },
     {
       id: 4,
@@ -201,7 +204,8 @@ void vulnerable_function() {
       osSupport: ['Linux'],
       successRate: '87.3%',
       avgTime: '45.6ms',
-      tags: ['Retbleed', 'RSB', '返回导向']
+      tags: ['Retbleed', 'RSB', '返回导向'],
+      runSupport: false
     },
     {
       id: 5,
@@ -241,7 +245,8 @@ void *thread_func(void *arg) {
       osSupport: ['Linux', 'Windows'],
       successRate: '92.1%',
       avgTime: '23.8ms',
-      tags: ['ZombieLoad', 'Fill Buffer', 'MDS']
+      tags: ['ZombieLoad', 'Fill Buffer', 'MDS'],
+      runSupport: false
     },
     {
       id: 6,
@@ -285,7 +290,8 @@ void process_buffer(char *buf, size_t len) {
       osSupport: ['Linux', 'Windows'],
       successRate: '89.5%',
       avgTime: '31.2ms',
-      tags: ['RIDL', '瞬态加载', '缓冲区']
+      tags: ['RIDL', '瞬态加载', '缓冲区'],
+      runSupport: false
     },
     {
       id: 7,
@@ -325,7 +331,8 @@ typedef struct {
       osSupport: ['Linux', 'Windows'],
       successRate: '94.2%',
       avgTime: '18.7ms',
-      tags: ['CacheOut', 'L1缓存', '逐出']
+      tags: ['CacheOut', 'L1缓存', '逐出'],
+      runSupport: false
     },
     {
       id: 8,
@@ -366,7 +373,8 @@ int victim_function(size_t index) {
       osSupport: ['Linux', 'Windows', 'macOS'],
       successRate: '96.8%',
       avgTime: '22.4ms',
-      tags: ['Spectre V2', 'BTB', '分支注入']
+      tags: ['Spectre V2', 'BTB', '分支注入'],
+      runSupport: true
     },
     {
       id: 9,
@@ -420,7 +428,8 @@ void process_shared() {
       osSupport: ['Linux', 'Windows'],
       successRate: '99.5%',
       avgTime: '5.2ms',
-      tags: ['Flush+Reload', 'Cache', '时序']
+      tags: ['Flush+Reload', 'Cache', '时序'],
+      runSupport: true
     },
     {
       id: 10,
@@ -477,7 +486,8 @@ unsigned char encrypt_byte(unsigned char input) {
       osSupport: ['Linux', 'Windows'],
       successRate: '95.0%',
       avgTime: '35.0ms',
-      tags: ['Prime+Probe', 'Cache', 'Eviction']
+      tags: ['Prime+Probe', 'Cache', 'Eviction'],
+      runSupport: false
     },
     {
       id: 11,
@@ -518,7 +528,8 @@ void crypto_operation(unsigned char *key) {
       osSupport: ['Linux'],
       successRate: '88.0%',
       avgTime: '50.0ms',
-      tags: ['PLATYPUS', 'RAPL', '功耗分析']
+      tags: ['PLATYPUS', 'RAPL', '功耗分析'],
+      runSupport: false
     },
     {
       id: 12,
@@ -564,7 +575,8 @@ unsigned char encrypt(unsigned char input, unsigned char key) {
       osSupport: ['Linux', 'Windows'],
       successRate: '82.0%',
       avgTime: '120.0ms',
-      tags: ['HertzBleed', 'DVFS', '频率分析']
+      tags: ['HertzBleed', 'DVFS', '频率分析'],
+      runSupport: false
     },
     {
       id: 13,
@@ -604,7 +616,8 @@ void setup_apic() {
       osSupport: ['Linux'],
       successRate: '91.0%',
       avgTime: '28.0ms',
-      tags: ['ÆPIC', 'APIC', 'MMIO']
+      tags: ['ÆPIC', 'APIC', 'MMIO'],
+      runSupport: false
     },
     {
       id: 14,
@@ -652,7 +665,8 @@ void increment() {
       osSupport: ['Linux'],
       successRate: '85.0%',
       avgTime: '40.0ms',
-      tags: ['CacheWarp', '缓存一致性', '时序']
+      tags: ['CacheWarp', '缓存一致性', '时序'],
+      runSupport: false
     },
     {
       id: 15,
@@ -696,7 +710,8 @@ void vector_process(data_t *input, data_t *output, size_t n) {
       osSupport: ['Linux'],
       successRate: '78.0%',
       avgTime: '60.0ms',
-      tags: ['GhostWrite', 'RISC-V', '向量指令']
+      tags: ['GhostWrite', 'RISC-V', '向量指令'],
+      runSupport: false
     },
     {
       id: 16,
@@ -737,7 +752,8 @@ struct {
       osSupport: ['Linux', 'Windows'],
       successRate: '90.0%',
       avgTime: '20.0ms',
-      tags: ['Fallout', 'Store Buffer', 'MDS']
+      tags: ['Fallout', 'Store Buffer', 'MDS'],
+      runSupport: false
     },
     {
       id: 17,
@@ -787,7 +803,8 @@ void transactional_op() {
       osSupport: ['Linux', 'Windows'],
       successRate: '86.0%',
       avgTime: '32.0ms',
-      tags: ['TAA', 'TSX', '事务']
+      tags: ['TAA', 'TSX', '事务'],
+      runSupport: false
     },
     {
       id: 18,
@@ -829,7 +846,8 @@ void process_request(void *handler) {
       osSupport: ['Linux', 'Windows'],
       successRate: '93.0%',
       avgTime: '25.0ms',
-      tags: ['BHI', '分支历史', 'BHR']
+      tags: ['BHI', '分支历史', 'BHR'],
+      runSupport: false
     },
     {
       id: 19,
@@ -874,7 +892,8 @@ void avx_compute(__m512i *data, size_t n) {
       osSupport: ['Linux', 'Windows'],
       successRate: '88.0%',
       avgTime: '35.0ms',
-      tags: ['Downfall', 'AVX', '向量寄存器']
+      tags: ['Downfall', 'AVX', '向量寄存器'],
+      runSupport: false
     },
     {
       id: 20,
@@ -917,7 +936,8 @@ void compute() {
       osSupport: ['Linux'],
       successRate: '84.0%',
       avgTime: '45.0ms',
-      tags: ['RFDS', '寄存器文件', '微码']
+      tags: ['RFDS', '寄存器文件', '微码'],
+      runSupport: false
     }
   ])
 

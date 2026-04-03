@@ -3,7 +3,7 @@ import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import 'echarts-gl'
 import { useVulnStore } from '../stores/vulnStore'
-import earthImage from '../assets/earth.jpg'
+//import earthImage from '../assets/earth.jpg'
 
 const vulnStore = useVulnStore()
 /*

@@ -15,6 +15,10 @@ const selectedRisk = ref('')
 const showModal = ref(false)
 const selectedVuln = ref(null)
 
+const isRunning = ref(false)
+const runResult = ref(null)
+const runError = ref('')
+
 const filteredVulns = computed(() => {
   return vulnStore.searchVulns(searchKeyword.value, {
     cveType: selectedCveType.value,
@@ -58,6 +62,8 @@ const riskLevels = [
 
 const openDetail = (vuln) => {
   selectedVuln.value = vuln
+  runResult.value = null
+  runError.value = ''
   showModal.value = true
 }
 
@@ -74,9 +80,52 @@ const downloadCode = (vuln, codeType) => {
   URL.revokeObjectURL(url)
 }
 
+const API_BASE_URL = 'http://localhost:8080/api'
+
+const runPoc = async () => {
+  if (!selectedVuln.value?.runSupport) return
+  
+  isRunning.value = true
+  runResult.value = null
+  runError.value = ''
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/run-poc`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        vulnId: selectedVuln.value.id,
+        vulnName: selectedVuln.value.name,
+        pocCode: selectedVuln.value.pocCode
+      })
+    })
+    
+    if (!response.ok) {
+      throw new Error(`请求失败: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    runResult.value = data
+  } catch (error) {
+    runError.value = error.message || '运行失败，请稍后重试'
+    runResult.value = {
+      success: false,
+      output: `[示例输出] 运行 POC: ${selectedVuln.value.name}\n\n[√] 初始化缓存探测...\n[√] 训练分支预测器...\n[√] 触发瞬态执行...\n[×] 攻击失败: 需要root权限或特定CPU支持\n\n[*] 说明: 此为演示环境，实际运行需要后端服务支持`,
+      executionTime: '0.012s',
+      memoryUsage: '2.4MB'
+    }
+  } finally {
+    isRunning.value = false
+  }
+}
+
 const closeModal = () => {
   showModal.value = false
   selectedVuln.value = null
+  runResult.value = null
+  runError.value = ''
 }
 </script>
 
@@ -241,6 +290,49 @@ const closeModal = () => {
               <span v-for="cpu in selectedVuln.cpuModels" :key="cpu" class="cpu-item">
                 {{ cpu }}
               </span>
+            </div>
+          </div>
+
+          <div class="vuln-section">
+            <h4>⚡ 在线运行</h4>
+            <div class="run-section">
+              <div v-if="selectedVuln.runSupport" class="run-enabled">
+                <p class="run-tip">该POC支持在线运行，点击下方按钮开始执行</p>
+                <div class="run-actions">
+                  <button 
+                    class="btn-run" 
+                    @click="runPoc" 
+                    :disabled="isRunning"
+                  >
+                    <span v-if="isRunning" class="loading-spinner"></span>
+                    <span v-else>▶️ 运行POC</span>
+                  </button>
+                </div>
+                <div v-if="runResult" class="run-result">
+                  <div class="result-header">
+                    <span class="result-status" :class="runResult.success ? 'success' : 'error'">
+                      {{ runResult.success ? '✅ 运行成功' : '❌ 运行失败' }}
+                    </span>
+                    <span v-if="runResult.executionTime" class="result-time">
+                      ⏱️ {{ runResult.executionTime }}
+                    </span>
+                    <span v-if="runResult.memoryUsage" class="result-memory">
+                      💾 {{ runResult.memoryUsage }}
+                    </span>
+                  </div>
+                  <div class="result-output">
+                    <pre>{{ runResult.output }}</pre>
+                  </div>
+                </div>
+                <div v-if="runError" class="run-error">
+                  {{ runError }}
+                </div>
+              </div>
+              <div v-else class="run-disabled">
+                <span class="unsupported-icon">🚫</span>
+                <p>该POC暂不支持在线运行</p>
+                <p class="unsupported-tip">请联系管理员添加运行支持</p>
+              </div>
             </div>
           </div>
 
@@ -563,6 +655,141 @@ const closeModal = () => {
   margin-top: 20px;
   padding-top: 20px;
   border-top: 1px solid var(--border-glow);
+}
+
+.run-section {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.run-tip {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 15px;
+}
+
+.run-actions {
+  margin-bottom: 15px;
+}
+
+.btn-run {
+  padding: 12px 30px;
+  background: linear-gradient(135deg, #00d4ff, #00ff9d);
+  border: none;
+  border-radius: 8px;
+  color: #000;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-run:hover:not(:disabled) {
+  box-shadow: 0 0 25px rgba(0, 212, 255, 0.5);
+  transform: translateY(-2px);
+}
+
+.btn-run:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(0, 0, 0, 0.3);
+  border-top-color: #000;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.run-result {
+  margin-top: 15px;
+}
+
+.result-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.result-status {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.result-status.success {
+  color: var(--success);
+}
+
+.result-status.error {
+  color: var(--danger);
+}
+
+.result-time, .result-memory {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.result-output {
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 8px;
+  padding: 15px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.result-output pre {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.9);
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0;
+}
+
+.run-error {
+  margin-top: 10px;
+  padding: 10px;
+  background: rgba(255, 51, 102, 0.15);
+  border-radius: 8px;
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.run-disabled {
+  text-align: center;
+  padding: 30px 20px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+}
+
+.unsupported-icon {
+  font-size: 40px;
+  display: block;
+  margin-bottom: 15px;
+}
+
+.run-disabled p {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+}
+
+.unsupported-tip {
+  font-size: 12px !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  margin-top: 8px !important;
 }
 
 @media (max-width: 1200px) {

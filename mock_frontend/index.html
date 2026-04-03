@@ -1,0 +1,1022 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>侧信道审计模拟前端</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f6f3ea;
+      --panel: rgba(255, 255, 255, 0.68);
+      --panel-strong: rgba(255, 255, 255, 0.9);
+      --text: #1f1d1a;
+      --muted: #6c6559;
+      --line: #d7cdb6;
+      --brand: #0d6f52;
+      --brand-soft: #d7f2e8;
+      --warn: #aa5e00;
+      --error: #8f1d1d;
+      --shadow: 0 10px 30px rgba(42, 33, 10, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: "Space Grotesk", "Noto Sans SC", sans-serif;
+      background:
+        radial-gradient(circle at 10% 10%, #ffe8bb 0%, rgba(255, 232, 187, 0.15) 38%, transparent 60%),
+        radial-gradient(circle at 90% 20%, #c3f0de 0%, rgba(195, 240, 222, 0.2) 35%, transparent 60%),
+        linear-gradient(135deg, #f8f1df 0%, #ede6d4 45%, #efe7d8 100%);
+      overflow-x: hidden;
+    }
+
+    .bg-grid {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.28;
+      background-image: linear-gradient(to right, rgba(0, 0, 0, 0.045) 1px, transparent 1px), linear-gradient(to bottom, rgba(0, 0, 0, 0.045) 1px, transparent 1px);
+      background-size: 32px 32px;
+      mask-image: radial-gradient(circle at center, black 25%, transparent 90%);
+      z-index: -1;
+    }
+
+    .container {
+      width: min(1200px, 94vw);
+      margin: 24px auto 48px;
+      display: grid;
+      gap: 18px;
+      animation: enter 500ms ease-out;
+    }
+
+    @keyframes enter {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .hero {
+      padding: 18px 22px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel-strong);
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 6px;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(22px, 2.8vw, 34px);
+      letter-spacing: 0.02em;
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .layout {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: 360px 1fr;
+      align-items: start;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+    }
+
+    .panel h2 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: 0.03em;
+    }
+
+    .panel-head {
+      padding: 14px 16px;
+      border-bottom: 1px dashed var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-body {
+      padding: 14px 16px 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      display: grid;
+      gap: 6px;
+    }
+
+    input[type="text"],
+    input[type="url"],
+    input[type="file"] {
+      width: 100%;
+      border: 1px solid #b8aa8d;
+      border-radius: 10px;
+      padding: 9px 10px;
+      font: inherit;
+      background: #fff;
+    }
+
+    .checks {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .checks label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text);
+    }
+
+    .btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 12px;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 600;
+      transition: transform 150ms ease, filter 150ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.02);
+    }
+
+    .btn-primary {
+      background: var(--brand);
+      color: #fff;
+    }
+
+    .btn-secondary {
+      background: #eee4cf;
+      color: #3d3526;
+      border: 1px solid #ccb991;
+    }
+
+    .meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+      color: #2f2c25;
+    }
+
+    .pill {
+      background: #f4ebd7;
+      border: 1px solid #d8c7a3;
+      border-radius: 999px;
+      padding: 4px 10px;
+    }
+
+    .phase-line {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+    }
+
+    .phase {
+      border: 1px solid #d5c4a0;
+      border-radius: 10px;
+      padding: 8px;
+      text-align: center;
+      font-size: 12px;
+      background: #f9f1df;
+      color: #7e6f54;
+    }
+
+    .phase.active {
+      color: #0d6f52;
+      background: var(--brand-soft);
+      border-color: #6fc9a8;
+      font-weight: 700;
+    }
+
+    .main {
+      display: grid;
+      gap: 18px;
+    }
+
+    .grid-2 {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: 1fr 1fr;
+      align-items: start;
+      min-width: 0;
+    }
+
+    .grid-2 > .panel {
+      min-width: 0;
+    }
+
+    .terminal {
+      min-height: 240px;
+      max-height: 320px;
+      overflow: auto;
+      border-radius: 12px;
+      background: #17120a;
+      color: #eed5a2;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+      line-height: 1.45;
+      padding: 10px;
+      border: 1px solid #4e432f;
+    }
+
+    .log-line {
+      margin: 0 0 6px;
+      white-space: pre-wrap;
+    }
+
+    .log-info { color: #eed5a2; }
+    .log-warning { color: #ffc76e; }
+    .log-error { color: #ff8f8f; }
+    .log-ai { color: #9dd8ff; }
+    .log-control { color: #9ef1bf; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      background: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+      table-layout: fixed;
+    }
+
+    th, td {
+      border-bottom: 1px solid #eee3cb;
+      text-align: left;
+      padding: 8px;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    th {
+      background: #f7f0e0;
+      font-weight: 700;
+      color: #4f4432;
+    }
+
+    .empty {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    pre {
+      margin: 0;
+      padding: 10px;
+      border-radius: 10px;
+      background: #fff;
+      border: 1px solid #e7d9bd;
+      white-space: pre-wrap;
+      font-size: 13px;
+      max-height: 300px;
+      overflow: auto;
+    }
+
+    .scroll-box {
+      max-height: 380px;
+      overflow: auto;
+      border: 1px solid #e7d9bd;
+      border-radius: 10px;
+      background: #fff;
+    }
+
+    .tool-visual {
+      display: grid;
+      grid-template-columns: 160px 1fr;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .pulse-stage {
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      background: radial-gradient(circle at center, rgba(13, 111, 82, 0.35) 0%, rgba(13, 111, 82, 0.08) 45%, rgba(13, 111, 82, 0.02) 70%, transparent 100%);
+      border: 1px solid #95d7bf;
+      position: relative;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+
+    .pulse-stage::before,
+    .pulse-stage::after {
+      content: "";
+      position: absolute;
+      inset: 14px;
+      border-radius: 50%;
+      border: 1px dashed rgba(13, 111, 82, 0.55);
+      animation: ring 2.6s linear infinite;
+    }
+
+    .pulse-stage::after {
+      inset: 30px;
+      animation-duration: 1.7s;
+      border-style: solid;
+      opacity: 0.7;
+    }
+
+    .pulse-stage.scan::before,
+    .pulse-stage.scan::after {
+      animation-play-state: running;
+    }
+
+    .pulse-stage.idle::before,
+    .pulse-stage.idle::after {
+      animation-play-state: paused;
+      opacity: 0.3;
+    }
+
+    .pulse-center {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #0d6f52;
+      box-shadow: 0 0 0 8px rgba(13, 111, 82, 0.15), 0 0 20px rgba(13, 111, 82, 0.45);
+      animation: heartbeat 1.2s ease-in-out infinite;
+    }
+
+    .pulse-stage.idle .pulse-center {
+      animation-play-state: paused;
+      opacity: 0.7;
+    }
+
+    .tool-meta {
+      display: grid;
+      gap: 8px;
+    }
+
+    .batch-meta {
+      display: grid;
+      gap: 6px;
+      margin-top: 2px;
+    }
+
+    .batch-label {
+      font-size: 12px;
+      color: #4f4432;
+      font-family: "IBM Plex Mono", monospace;
+    }
+
+    .batch-progress {
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      background: #efe2c7;
+      border: 1px solid #d9c7a3;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .batch-fill {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #0d6f52, #2ea67f);
+      transition: width 320ms ease;
+    }
+
+    .tool-status {
+      display: inline-block;
+      width: fit-content;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      background: #e4f6ef;
+      color: #0b6248;
+      border: 1px solid #90d7bf;
+    }
+
+    .tool-status.wait {
+      background: #f3ecdb;
+      color: #705f3f;
+      border-color: #d9c7a3;
+    }
+
+    .tool-status.done {
+      background: #dff5ea;
+      color: #0b6248;
+      border-color: #7ecfb0;
+    }
+
+    .tool-query,
+    .tool-result {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+      background: #fff;
+      border: 1px solid #e7d9bd;
+      border-radius: 8px;
+      padding: 8px;
+      min-height: 42px;
+      max-height: 76px;
+      overflow: auto;
+      white-space: pre-wrap;
+    }
+
+    @keyframes ring {
+      0% {
+        transform: scale(0.9);
+        opacity: 0.25;
+      }
+      60% {
+        transform: scale(1.05);
+        opacity: 0.8;
+      }
+      100% {
+        transform: scale(1.15);
+        opacity: 0.1;
+      }
+    }
+
+    @keyframes heartbeat {
+      0%, 100% {
+        transform: scale(0.95);
+      }
+      50% {
+        transform: scale(1.08);
+      }
+    }
+
+    @media (max-width: 1024px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+
+      .tool-visual {
+        grid-template-columns: 1fr;
+      }
+
+      .pulse-stage {
+        margin: 0 auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="container">
+    <section class="hero">
+      <h1>侧信道漏洞审计 · 模拟前端</h1>
+      <p>按后端 API 契约实现：上传 ZIP 后自动建立 SSE 长连接，实时展示阶段、日志、候选池与最终报告。</p>
+    </section>
+
+    <section class="layout">
+      <aside class="panel">
+        <div class="panel-head">
+          <h2>任务配置</h2>
+        </div>
+        <form id="uploadForm" class="panel-body">
+          <label>
+            后端地址
+            <input id="apiBase" type="url" value="http://127.0.0.1:5000" required>
+          </label>
+
+          <label>
+            待审计 ZIP 包
+            <input id="zipFile" type="file" accept=".zip" required>
+          </label>
+
+          <label>
+            target_bin (可选)
+            <input id="targetBin" type="text" placeholder="例如: gpg">
+          </label>
+
+          <div>
+            <div style="font-size: 13px; color: var(--muted); margin-bottom: 6px;">detectors (可选，多选)</div>
+            <div class="checks">
+              <label><input class="detector" type="checkbox" value="flush_reload_branch">flush_reload_branch</label>
+              <label><input class="detector" type="checkbox" value="prime_probe_array">prime_probe_array</label>
+            </div>
+          </div>
+
+          <div class="btn-row">
+            <button class="btn-primary" type="submit">上传并分析</button>
+            <button class="btn-secondary" id="stopBtn" type="button">断开 SSE</button>
+          </div>
+
+          <div class="meta">
+            <span class="pill" id="taskIdPill">task: 未创建</span>
+            <span class="pill" id="statusPill">status: idle</span>
+          </div>
+        </form>
+      </aside>
+
+      <main class="main">
+        <section class="panel">
+          <div class="panel-head"><h2>流程阶段</h2></div>
+          <div class="panel-body">
+            <div class="phase-line" id="phaseLine">
+              <div class="phase" data-stage="phase_0">Phase 0</div>
+              <div class="phase" data-stage="phase_1">Phase 1</div>
+              <div class="phase" data-stage="phase_2">Phase 2</div>
+              <div class="phase" data-stage="phase_3">Phase 3</div>
+              <div class="phase" data-stage="phase_4">Phase 4</div>
+            </div>
+            <div id="phaseText" class="empty">等待任务开始</div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head"><h2>实时控制台 / AI 活动</h2></div>
+          <div class="panel-body">
+            <div id="terminal" class="terminal"></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head"><h2>Agent 工具查询可视化</h2></div>
+          <div class="panel-body tool-visual">
+            <div id="toolPulse" class="pulse-stage idle">
+              <div class="pulse-center"></div>
+            </div>
+            <div class="tool-meta">
+              <span id="toolStatus" class="tool-status wait">等待工具调用</span>
+              <div class="batch-meta">
+                <div id="batchLabel" class="batch-label">批次进度: 暂无</div>
+                <div class="batch-progress">
+                  <div id="batchFill" class="batch-fill"></div>
+                </div>
+              </div>
+              <div>
+                <div style="font-size: 12px; color: var(--muted); margin-bottom: 4px;">最近一次工具请求</div>
+                <div id="toolQuery" class="tool-query">暂无</div>
+              </div>
+              <div>
+                <div style="font-size: 12px; color: var(--muted); margin-bottom: 4px;">最近一次工具结果摘要</div>
+                <div id="toolResult" class="tool-result">暂无</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="grid-2">
+          <section class="panel">
+            <div class="panel-head"><h2>candidates</h2></div>
+            <div class="panel-body" id="candidatesWrap">
+              <div class="empty">暂无数据</div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head"><h2>shortlist</h2></div>
+            <div class="panel-body" id="shortlistWrap">
+              <div class="empty">暂无数据</div>
+            </div>
+          </section>
+        </section>
+
+        <section class="grid-2">
+          <section class="panel">
+            <div class="panel-head"><h2>audit_reports</h2></div>
+            <div class="panel-body" id="auditWrap">
+              <div class="empty">暂无数据</div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head"><h2>final_report</h2></div>
+            <div class="panel-body" id="finalWrap">
+              <div class="empty">暂无数据</div>
+            </div>
+          </section>
+        </section>
+      </main>
+    </section>
+  </div>
+
+  <script>
+    const uploadForm = document.getElementById("uploadForm");
+    const apiBaseInput = document.getElementById("apiBase");
+    const zipFileInput = document.getElementById("zipFile");
+    const targetBinInput = document.getElementById("targetBin");
+    const stopBtn = document.getElementById("stopBtn");
+
+    const terminal = document.getElementById("terminal");
+    const taskIdPill = document.getElementById("taskIdPill");
+    const statusPill = document.getElementById("statusPill");
+    const phaseText = document.getElementById("phaseText");
+
+    const candidatesWrap = document.getElementById("candidatesWrap");
+    const shortlistWrap = document.getElementById("shortlistWrap");
+    const auditWrap = document.getElementById("auditWrap");
+    const finalWrap = document.getElementById("finalWrap");
+    const toolPulse = document.getElementById("toolPulse");
+    const toolStatus = document.getElementById("toolStatus");
+    const toolQuery = document.getElementById("toolQuery");
+    const toolResult = document.getElementById("toolResult");
+    const batchLabel = document.getElementById("batchLabel");
+    const batchFill = document.getElementById("batchFill");
+
+    let sse = null;
+    let currentBatchInfo = null;
+
+    const eventNames = [
+      "start", "info", "warning", "error",
+      "phase_0", "phase_1", "phase_2", "phase_3", "phase_4",
+      "candidates", "shortlist", "audit_reports",
+      "agent_step", "tool_call", "tool_result",
+      "final_report", "finished", "complete"
+    ];
+
+    function setStatus(text) {
+      statusPill.textContent = `status: ${text}`;
+    }
+
+    function addLog(eventName, message) {
+      const line = document.createElement("p");
+      line.className = "log-line " + classifyLog(eventName);
+      line.textContent = `[${new Date().toLocaleTimeString()}] [${eventName}] ${message || ""}`;
+      terminal.appendChild(line);
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    function classifyLog(eventName) {
+      if (eventName === "warning") return "log-warning";
+      if (eventName === "error") return "log-error";
+      if (eventName === "agent_step" || eventName === "tool_call" || eventName === "tool_result") return "log-ai";
+      if (eventName === "start" || eventName === "finished" || eventName === "complete") return "log-control";
+      return "log-info";
+    }
+
+    function clearPhaseActive() {
+      document.querySelectorAll(".phase").forEach((el) => el.classList.remove("active"));
+    }
+
+    function markPhase(stage, text) {
+      clearPhaseActive();
+      const node = document.querySelector(`.phase[data-stage='${stage}']`);
+      if (node) {
+        node.classList.add("active");
+      }
+      phaseText.textContent = text || stage;
+    }
+
+    function renderCandidates(data) {
+      if (!Array.isArray(data) || data.length === 0) {
+        candidatesWrap.innerHTML = "<div class='empty'>暂无数据</div>";
+        return;
+      }
+
+      const rows = data.map((item) => {
+        const args = Array.isArray(item.args)
+          ? item.args
+              .map((arg, idx) => {
+                if (arg && typeof arg === "object") {
+                  const type = arg.type ? String(arg.type).trim() : "";
+                  const name = arg.name ? String(arg.name).trim() : `arg_${idx}`;
+                  const combined = `${type} ${name}`.trim();
+                  return combined || `arg_${idx}`;
+                }
+                return String(arg);
+              })
+              .join(", ")
+          : "";
+        return `<tr>
+          <td>${escapeHtml(item.name || "")}</td>
+          <td>${escapeHtml(item.detector || "")}</td>
+          <td>${escapeHtml(item.pattern || "")}</td>
+          <td>${escapeHtml(String(item.imbalance ?? ""))}</td>
+          <td>${escapeHtml(args || "-")}</td>
+        </tr>`;
+      }).join("");
+
+      candidatesWrap.innerHTML = `<div class="scroll-box"><table>
+        <thead>
+          <tr><th>name</th><th>detector</th><th>pattern</th><th>imbalance</th><th>args</th></tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table></div>`;
+    }
+
+    function renderShortlist(data) {
+      if (!Array.isArray(data) || data.length === 0) {
+        shortlistWrap.innerHTML = "<div class='empty'>暂无数据</div>";
+        return;
+      }
+
+      const listHtml = data.map((name) => `<li>${escapeHtml(String(name))}</li>`).join("");
+      shortlistWrap.innerHTML = `<div class="scroll-box" style="padding: 8px;"><ol style="margin:0; padding-left: 20px;">${listHtml}</ol></div>`;
+    }
+
+    function renderAuditReports(data) {
+      if (!Array.isArray(data) || data.length === 0) {
+        auditWrap.innerHTML = "<div class='empty'>暂无数据</div>";
+        return;
+      }
+
+      const rows = data.map((item) => `<tr>
+        <td>${escapeHtml(item.func_name || "")}</td>
+        <td>${escapeHtml(item.attack_type || "")}</td>
+        <td>${escapeHtml(item.leaked_info || "")}</td>
+        <td>${escapeHtml(item.reason || "")}</td>
+      </tr>`).join("");
+
+      auditWrap.innerHTML = `<div class="scroll-box"><table>
+        <thead>
+          <tr><th>func_name</th><th>attack_type</th><th>leaked_info</th><th>reason</th></tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table></div>`;
+    }
+
+    function renderFinalReport(data) {
+      if (!data) {
+        finalWrap.innerHTML = "<div class='empty'>暂无数据</div>";
+        return;
+      }
+      const content = typeof data === "string" ? data : (data.content || JSON.stringify(data, null, 2));
+      finalWrap.innerHTML = `<pre>${escapeHtml(content)}</pre>`;
+    }
+
+    function escapeHtml(raw) {
+      return String(raw)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function closeSSE() {
+      if (sse) {
+        sse.close();
+        sse = null;
+      }
+    }
+
+    function resetDisplay() {
+      terminal.innerHTML = "";
+      phaseText.textContent = "等待任务开始";
+      clearPhaseActive();
+      candidatesWrap.innerHTML = "<div class='empty'>暂无数据</div>";
+      shortlistWrap.innerHTML = "<div class='empty'>暂无数据</div>";
+      auditWrap.innerHTML = "<div class='empty'>暂无数据</div>";
+      finalWrap.innerHTML = "<div class='empty'>暂无数据</div>";
+      toolPulse.className = "pulse-stage idle";
+      toolStatus.className = "tool-status wait";
+      toolStatus.textContent = "等待工具调用";
+      toolQuery.textContent = "暂无";
+      toolResult.textContent = "暂无";
+      currentBatchInfo = null;
+      batchLabel.textContent = "批次进度: 暂无";
+      batchFill.style.width = "0%";
+    }
+
+    function parseBatchInfo(message) {
+      if (!message || typeof message !== "string") {
+        return null;
+      }
+      const match = message.match(/(\d+)\s*[~\-]\s*(\d+)\s*\/\s*(\d+)/);
+      if (!match) {
+        return null;
+      }
+
+      const start = Number(match[1]);
+      const end = Number(match[2]);
+      const total = Number(match[3]);
+      if (!Number.isFinite(start) || !Number.isFinite(end) || !Number.isFinite(total) || total <= 0) {
+        return null;
+      }
+
+      const safeStart = Math.max(1, start);
+      const safeEnd = Math.min(Math.max(end, safeStart), total);
+      const unit = Math.max(1, safeEnd - safeStart + 1);
+      const totalBatches = Math.max(1, Math.ceil(total / unit));
+      const currentBatch = Math.min(totalBatches, Math.max(1, Math.ceil(safeEnd / unit)));
+      const percent = Math.min(100, Math.max(0, (safeEnd / total) * 100));
+
+      return {
+        start: safeStart,
+        end: safeEnd,
+        total,
+        currentBatch,
+        totalBatches,
+        percent
+      };
+    }
+
+    function renderBatchProgress(info) {
+      if (!info) {
+        batchLabel.textContent = "批次进度: 暂无";
+        batchFill.style.width = "0%";
+        return;
+      }
+      batchLabel.textContent = `批次 ${info.currentBatch}/${info.totalBatches} · 处理 ${info.start}-${info.end}/${info.total}`;
+      batchFill.style.width = `${info.percent.toFixed(2)}%`;
+    }
+
+    function setToolVisual(state, queryText, resultText) {
+      if (state === "searching") {
+        toolPulse.className = "pulse-stage scan";
+        toolStatus.className = "tool-status";
+        toolStatus.textContent = "工具查询中";
+      } else if (state === "done") {
+        toolPulse.className = "pulse-stage idle";
+        toolStatus.className = "tool-status done";
+        toolStatus.textContent = "查询完成";
+      } else {
+        toolPulse.className = "pulse-stage idle";
+        toolStatus.className = "tool-status wait";
+        toolStatus.textContent = "等待工具调用";
+      }
+
+      if (queryText) {
+        if (currentBatchInfo) {
+          toolQuery.textContent = `[批次 ${currentBatchInfo.currentBatch}/${currentBatchInfo.totalBatches}] ${queryText}`;
+        } else {
+          toolQuery.textContent = queryText;
+        }
+      }
+      if (resultText) {
+        if (currentBatchInfo) {
+          toolResult.textContent = `[批次 ${currentBatchInfo.currentBatch}/${currentBatchInfo.totalBatches}] ${resultText}`;
+        } else {
+          toolResult.textContent = resultText;
+        }
+      }
+    }
+
+    function bindSSE(taskId, baseUrl) {
+      closeSSE();
+      const streamUrl = `${baseUrl}/stream/${taskId}`;
+      sse = new EventSource(streamUrl);
+      setStatus("streaming");
+      addLog("system", `SSE connected: ${streamUrl}`);
+
+      eventNames.forEach((eventName) => {
+        sse.addEventListener(eventName, (ev) => {
+          let payload;
+          try {
+            payload = JSON.parse(ev.data);
+          } catch {
+            payload = { stage: eventName, message: ev.data, data: null };
+          }
+
+          const stage = payload.stage || eventName;
+          const message = payload.message || "";
+          const data = payload.data;
+
+          const parsedBatch = parseBatchInfo(message);
+          if (parsedBatch) {
+            currentBatchInfo = parsedBatch;
+            renderBatchProgress(currentBatchInfo);
+          }
+
+          addLog(stage, message);
+
+          if (stage.startsWith("phase_")) {
+            markPhase(stage, message || stage);
+          }
+
+          if (stage === "candidates") {
+            renderCandidates(data);
+          }
+          if (stage === "shortlist") {
+            renderShortlist(data);
+          }
+          if (stage === "audit_reports") {
+            renderAuditReports(data);
+          }
+          if (stage === "final_report") {
+            renderFinalReport(data);
+          }
+          if (stage === "agent_step") {
+            setToolVisual("idle", `轮次: ${message || "新一轮思考"}`);
+          }
+          if (stage === "tool_call") {
+            const querySummary = typeof message === "string" && message.trim() ? message : JSON.stringify(data || {}, null, 2);
+            setToolVisual("searching", querySummary);
+          }
+          if (stage === "tool_result") {
+            const resultSummary = typeof message === "string" && message.trim() ? message : JSON.stringify(data || {}, null, 2);
+            setToolVisual("done", null, resultSummary);
+          }
+          if (stage === "error") {
+            setStatus("error");
+            setToolVisual("idle", null, "流程异常，工具查询中止");
+          }
+          if (stage === "complete") {
+            setStatus("complete");
+          }
+          if (stage === "finished") {
+            setStatus("finished");
+            closeSSE();
+          }
+        });
+      });
+
+      sse.onerror = () => {
+        addLog("error", "SSE 连接异常或已关闭");
+        if (sse && sse.readyState === EventSource.CLOSED) {
+          setStatus("closed");
+        }
+      };
+    }
+
+    uploadForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const baseUrl = apiBaseInput.value.trim().replace(/\/$/, "");
+      const file = zipFileInput.files?.[0];
+      if (!baseUrl || !file) {
+        alert("请填写后端地址并选择 ZIP 文件");
+        return;
+      }
+
+      resetDisplay();
+      setStatus("uploading");
+      addLog("system", `Uploading ${file.name} ...`);
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const targetBin = targetBinInput.value.trim();
+      if (targetBin) {
+        formData.append("target_bin", targetBin);
+      }
+
+      const selectedDetectors = Array.from(document.querySelectorAll(".detector:checked"))
+        .map((el) => el.value)
+        .filter(Boolean);
+      if (selectedDetectors.length > 0) {
+        formData.append("detectors", selectedDetectors.join(","));
+      }
+
+      try {
+        const resp = await fetch(`${baseUrl}/upload`, {
+          method: "POST",
+          body: formData
+        });
+
+        const payload = await resp.json();
+        if (!resp.ok) {
+          throw new Error(payload.error || "上传失败");
+        }
+
+        const taskId = payload.task_id;
+        taskIdPill.textContent = `task: ${taskId}`;
+        setStatus("submitted");
+        addLog("start", payload.message || "任务已创建");
+
+        bindSSE(taskId, baseUrl);
+      } catch (err) {
+        setStatus("failed");
+        addLog("error", err.message || String(err));
+      }
+    });
+
+    stopBtn.addEventListener("click", () => {
+      closeSSE();
+      setStatus("stopped");
+      addLog("system", "手动断开 SSE");
+    });
+  </script>
+</body>
+</html>
