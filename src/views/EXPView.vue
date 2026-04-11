@@ -1,7 +1,10 @@
 <script setup>
 import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useVulnStore } from '../stores/vulnStore'
+import { isExpDemoAvailable } from '../config/demoConfig'
 
+const router = useRouter()
 const vulnStore = useVulnStore()
 
 const searchKeyword = ref('')
@@ -131,6 +134,20 @@ const closeModal = () => {
   selectedVuln.value = null
   runResult.value = null
   runError.value = ''
+}
+
+const goToDemo = (vuln) => {
+  router.push({
+    path: '/demo',
+    query: {
+      type: 'exp',
+      vuln: vuln.id
+    }
+  })
+}
+
+const hasDemo = (vuln) => {
+  return isExpDemoAvailable(vuln?.name)
 }
 </script>
 
@@ -338,7 +355,18 @@ const closeModal = () => {
           <div class="vuln-section">
             <h4>⚡ 在线运行</h4>
             <div class="run-section">
-              <div v-if="selectedVuln.runSupport" class="run-enabled">
+              <div v-if="hasDemo(selectedVuln)" class="run-enabled">
+                <p class="run-tip">该EXP支持在线演示，点击下方按钮跳转到演示界面</p>
+                <div class="run-actions">
+                  <button 
+                    class="btn-demo" 
+                    @click="goToDemo(selectedVuln)"
+                  >
+                    🎬 前往演示界面
+                  </button>
+                </div>
+              </div>
+              <div v-else-if="selectedVuln.runSupport" class="run-enabled">
                 <p class="run-tip">该EXP支持在线运行，点击下方按钮开始执行</p>
                 <div class="run-actions">
                   <button 
@@ -803,6 +831,26 @@ const closeModal = () => {
 .btn-run:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+}
+
+.btn-demo {
+  padding: 12px 30px;
+  background: linear-gradient(135deg, #9b59b6, #8e44ad);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-demo:hover {
+  box-shadow: 0 0 25px rgba(155, 89, 182, 0.5);
+  transform: translateY(-2px);
 }
 
 .loading-spinner {

@@ -66,6 +66,12 @@ const menuItems = [
     path: '/detect', 
     icon: '🔍',
     children: [] 
+  },
+  { 
+    name: 'POC/EXP演示', 
+    path: '/demo', 
+    icon: '🎬',
+    children: [] 
   }
 ]
 

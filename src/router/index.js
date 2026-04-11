@@ -26,6 +26,12 @@ const routes = [
     meta: { title: '代码安全检测' }
   },
   {
+    path: '/demo',
+    name: 'Demo',
+    component: () => import('../views/DemoView.vue'),
+    meta: { title: 'POC/EXP演示' }
+  },
+  {
     path: '/detail/:id',
     name: 'Detail',
     component: () => import('../views/VulnDetail.vue'),
