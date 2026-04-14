@@ -68,7 +68,7 @@ const menuItems = [
     children: [] 
   },
   { 
-    name: 'POC/EXP演示', 
+    name: '主机漏洞检测', 
     path: '/demo', 
     icon: '🎬',
     children: [] 

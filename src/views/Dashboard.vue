@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import 'echarts-gl'
 import { useVulnStore } from '../stores/vulnStore'
@@ -59,31 +59,13 @@ const globalData = ref([
   { name: 'Romania', value: 1, coord: [24.97, 45.94] }
 ])
 */
-const animatedStats = reactive({
-  hosts: 0,
-  vulns: 0,
-  pocs: 0,
-  exps: 0,
-  accuracy: 0
-})
-
-const streamData = ref([
-  { flag: '📤', text: '平台新增 Spectre V1 POC', time: '5秒前', type: 'upload' },
-  { flag: '⬇️', text: '北京用户下载 Meltdown EXP', time: '12秒前', type: 'download' },
-  { flag: '📤', text: '平台新增 Foreshadow POC', time: '28秒前', type: 'upload' },
-  { flag: '⬇️', text: '上海用户下载 ZombieLoad EXP', time: '45秒前', type: 'download' },
-  { flag: '⬇️', text: '广东用户下载 Retbleed POC', time: '1分钟前', type: 'download' }
-])
-
 const heatmapChartRef = ref(null)
 const trendChartRef = ref(null)
 const pieChartRef = ref(null)
 const barChartRef = ref(null)
-const mapChartRef = ref(null)
-let streamInterval = null
 let scanInterval = null
+let pipelineInterval = null
 let currentPipelineStep = 0
-let currentCodeLine = 0
 
 const pipelineSteps = [
   { icon: '📥', label: '上传代码' },
@@ -91,13 +73,6 @@ const pipelineSteps = [
   { icon: '🎯', label: '漏洞匹配' },
   { icon: '⏱️', label: '风险评估' },
   { icon: '📄', label: '报告生成' }
-]
-
-const attackGenSteps = [
-  { icon: '🎯', label: '漏洞点识别' },
-  { icon: '🤖', label: 'AI生成EXP' },
-  { icon: '⚙️', label: '代码优化' },
-  { icon: '✅', label: '验证测试' }
 ]
 
 const vulnerableCodeLines = [
@@ -120,24 +95,6 @@ const updateScanLine = () => {
   if (scanLineIndex > vulnerableCodeLines.length) {
     scanLineIndex = 0
   }
-}
-
-const animateNumber = (target, key, endValue, duration = 2000) => {
-  const startTime = Date.now()
-  const startValue = target[key]
-  const diff = endValue - startValue
-  
-  const update = () => {
-    const elapsed = Date.now() - startTime
-    const progress = Math.min(elapsed / duration, 1)
-    const easeProgress = 1 - Math.pow(1 - progress, 3)
-    target[key] = Math.floor(startValue + diff * easeProgress)
-    
-    if (progress < 1) {
-      requestAnimationFrame(update)
-    }
-  }
-  requestAnimationFrame(update)
 }
 
 const initHeatmapChart = () => {
@@ -469,14 +426,6 @@ const initMapChart = () => {
 }
 */
 onMounted(() => {
-  setTimeout(() => {
-    animateNumber(animatedStats, 'hosts', vulnStore.stats.totalHosts)
-    animateNumber(animatedStats, 'vulns', vulnStore.stats.totalVulns)
-    animateNumber(animatedStats, 'pocs', vulnStore.stats.totalPocs)
-    animateNumber(animatedStats, 'exps', vulnStore.stats.totalExps)
-    animateNumber(animatedStats, 'accuracy', vulnStore.stats.accuracy)
-  }, 500)
-
   nextTick(() => {
     initHeatmapChart()
     initTrendChart()
@@ -485,7 +434,7 @@ onMounted(() => {
     //initMapChart()
   })
 
-  setInterval(() => {
+  pipelineInterval = setInterval(() => {
     currentPipelineStep = (currentPipelineStep + 1) % 5
   }, 2000)
 
@@ -493,30 +442,10 @@ onMounted(() => {
   scanInterval = setInterval(() => {
     updateScanLine()
   }, 1500)
-
-  const cities = ['北京', '上海', '广东', '浙江', '江苏', '四川', '湖北', '福建', '山东', '陕西']
-  const vulnNames = ['Spectre V1', 'Meltdown', 'Foreshadow', 'ZombieLoad', 'Retbleed', 'RIDL', 'CacheOut', 'BHI']
-  const types = ['POC', 'EXP']
-
-  streamInterval = setInterval(() => {
-    const isUpload = Math.random() > 0.5
-    const newItem = {
-      flag: isUpload ? '📤' : '⬇️',
-      text: isUpload 
-        ? `平台新增 ${vulnNames[Math.floor(Math.random() * vulnNames.length)]} ${types[Math.floor(Math.random() * types.length)]}`
-        : `${cities[Math.floor(Math.random() * cities.length)]}用户下载 ${vulnNames[Math.floor(Math.random() * vulnNames.length)]} ${types[Math.floor(Math.random() * types.length)]}`,
-      time: '刚刚',
-      type: isUpload ? 'upload' : 'download'
-    }
-    streamData.value.unshift(newItem)
-    if (streamData.value.length > 8) {
-      streamData.value.pop()
-    }
-  }, 3000)
 })
 
 onUnmounted(() => {
-  if (streamInterval) clearInterval(streamInterval)
+  if (pipelineInterval) clearInterval(pipelineInterval)
   if (scanInterval) clearInterval(scanInterval)
 })
 </script>
@@ -524,41 +453,6 @@ onUnmounted(() => {
 <template>
   <div class="dashboard">
     <div class="dashboard-grid">
-      <!-- 平台概览 -->
-      <div class="glass-card overview-card">
-        <div class="card-header">
-          <h3 class="card-title">💡 平台概览</h3>
-          <span class="card-badge">实时更新</span>
-        </div>
-        <div class="overview-stats">
-          <div class="stat-item">
-            <div class="stat-value">{{ animatedStats.hosts }}</div>
-            <div class="stat-label">已检测主机数</div>
-            <div class="stat-change">↑ {{ vulnStore.stats.weeklyGrowth }}%</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value">{{ animatedStats.vulns }}</div>
-            <div class="stat-label">成功发现漏洞</div>
-            <div class="stat-change">↑ 8.3%</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value">{{ animatedStats.pocs }}</div>
-            <div class="stat-label">POC总数</div>
-            <div class="stat-change">+{{ vulnStore.stats.weeklyNewPocs }} 本周新增</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value">{{ animatedStats.exps }}</div>
-            <div class="stat-label">EXP演示数量</div>
-            <div class="stat-change">↑ 15.2%</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value">{{ animatedStats.accuracy }}%</div>
-            <div class="stat-label">AI分析准确率</div>
-            <div class="stat-change">↑ 2.1%</div>
-          </div>
-        </div>
-      </div>
-
       <!-- CVE类型饼图 -->
       <div class="glass-card pie-card">
         <div class="card-header">
@@ -653,56 +547,6 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- EXP生成流程示意 -->
-      <div class="glass-card exp-gen-card">
-        <div class="card-header">
-          <h3 class="card-title">💀 EXP攻击代码生成流程</h3>
-          <span class="card-badge">AI生成</span>
-        </div>
-        
-        <div class="exp-gen-flow">
-          <template v-for="(step, idx) in attackGenSteps" :key="idx">
-            <div class="gen-step">
-              <div class="gen-icon">{{ step.icon }}</div>
-              <div class="gen-label">{{ step.label }}</div>
-            </div>
-            <span v-if="idx < attackGenSteps.length - 1" class="gen-arrow">→</span>
-          </template>
-        </div>
-        
-        <div class="gen-desc">
-          <p>1. 识别用户代码中的潜在漏洞点</p>
-          <p>2. 基于漏洞类型调用AI模型生成攻击代码</p>
-          <p>3. 优化代码结构与可读性</p>
-          <p>4. 验证生成代码的正确性与危害性</p>
-        </div>
-      </div>
-
-
-
-
-      <!-- 全球POC/EXP更新实时流 -->
-      <div class="glass-card stream-card">
-        <div class="card-header">
-          <h3 class="card-title">🌐 平台上传 & 用户下载实时流</h3>
-          <span class="card-badge">最近动态</span>
-        </div>
-        <div class="stream-list">
-          <div 
-            v-for="(item, idx) in streamData" 
-            :key="idx" 
-            class="stream-item"
-            :class="item.type"
-          >
-            <span class="stream-flag">{{ item.flag }}</span>
-            <div class="stream-content">
-              <div class="stream-text">{{ item.text }}</div>
-              <div class="stream-meta">{{ item.time }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- 全球地图 + 排行榜 -->
 <!-- 
       
@@ -744,52 +588,6 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
   gap: 20px;
-}
-
-.overview-card {
-  grid-column: span 12;
-}
-
-.overview-stats {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 15px;
-  margin-top: 20px;
-}
-
-.stat-item {
-  text-align: center;
-  padding: 20px 15px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 12px;
-  border: 1px solid rgba(0, 212, 255, 0.2);
-  transition: all 0.3s;
-}
-
-.stat-item:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 30px rgba(0, 212, 255, 0.2);
-}
-
-.stat-value {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 32px;
-  font-weight: 700;
-  background: linear-gradient(135deg, var(--secondary), var(--accent));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.stat-label {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
-  margin-top: 8px;
-}
-
-.stat-change {
-  font-size: 12px;
-  color: var(--success);
-  margin-top: 5px;
 }
 
 .pie-card {
@@ -943,7 +741,7 @@ onUnmounted(() => {
 .code-comment { color: #6a9955; }
 .code-instr { color: #569cd6; }
 
-.pipeline-flow, .exp-gen-flow {
+.pipeline-flow {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -952,12 +750,12 @@ onUnmounted(() => {
   border-radius: 8px;
 }
 
-.pipeline-step, .gen-step {
+.pipeline-step {
   text-align: center;
   flex: 1;
 }
 
-.pipeline-icon, .gen-icon {
+.pipeline-icon {
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -977,41 +775,14 @@ onUnmounted(() => {
   box-shadow: 0 0 12px rgba(0, 255, 157, 0.3);
 }
 
-.gen-icon {
-  background: rgba(255, 51, 102, 0.2);
-  border-color: rgba(255, 51, 102, 0.3);
-}
-
-.pipeline-label, .gen-label {
+.pipeline-label {
   font-size: 10px;
   color: rgba(255, 255, 255, 0.6);
 }
 
-.pipeline-arrow, .gen-arrow {
+.pipeline-arrow {
   color: var(--secondary);
   font-size: 14px;
-}
-
-.exp-gen-card {
-  grid-column: span 6;
-}
-
-.gen-desc {
-  margin-top: 15px;
-  padding: 12px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 8px;
-}
-
-.gen-desc p {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
-  margin-bottom: 6px;
-  line-height: 1.5;
-}
-
-.gen-desc p:last-child {
-  margin-bottom: 0;
 }
 
 .map-card {
@@ -1193,62 +964,12 @@ onUnmounted(() => {
 .poc-risk.medium { background: rgba(255, 170, 0, 0.2); color: var(--warning); }
 .poc-risk.low { background: rgba(0, 255, 157, 0.2); color: var(--success); }
 
-.stream-card {
-  grid-column: span 6;
-  max-height: 300px;
-  overflow: hidden;
-}
-
-.stream-list {
-  margin-top: 15px;
-  overflow-y: auto;
-  max-height: 210px;
-}
-
-.stream-item {
-  display: flex;
-  align-items: center;
-  padding: 10px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 8px;
-  margin-bottom: 8px;
-  border-left: 2px solid transparent;
-  animation: slideIn 0.5s ease;
-}
-
-.stream-item.upload { border-left-color: var(--success); }
-.stream-item.download { border-left-color: var(--secondary); }
-
-.stream-flag {
-  font-size: 16px;
-  margin-right: 8px;
-}
-
-.stream-content {
-  flex: 1;
-}
-
-.stream-text {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.stream-meta {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.5);
-  margin-top: 2px;
-}
-
 @media (max-width: 1400px) {
-  .overview-stats {
-    grid-template-columns: repeat(3, 1fr);
-  }
-  
   .poc-grid {
     grid-template-columns: repeat(4, 1fr);
   }
   
-  .pie-card, .bar-card, .heatmap-card, .trend-card, .ai-pipeline-card, .exp-gen-card, .map-card, .stream-card {
+  .pie-card, .bar-card, .heatmap-card, .trend-card, .ai-pipeline-card, .map-card {
     grid-column: span 6;
   }
 }
@@ -1258,7 +979,7 @@ onUnmounted(() => {
     grid-template-columns: repeat(3, 1fr);
   }
   
-  .pie-card, .bar-card, .heatmap-card, .trend-card, .ai-pipeline-card, .exp-gen-card, .map-card, .stream-card, .poc-card {
+  .pie-card, .bar-card, .heatmap-card, .trend-card, .ai-pipeline-card, .map-card, .poc-card {
     grid-column: span 12;
   }
 

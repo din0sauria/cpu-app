@@ -1,21 +1,13 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useVulnStore } from '../stores/vulnStore'
-import { POC_DEMO_LIST, EXP_DEMO_LIST } from '../config/demoConfig'
-
-const route = useRoute()
-const router = useRouter()
-const vulnStore = useVulnStore()
 
 const API_BASE = 'http://127.0.0.1:8090'
 const WS_BASE = 'ws://127.0.0.1:8090'
 const STORAGE_KEY = 'pocexp_frontend_report_cache_v1'
-
-const demoType = ref('poc')
-const selectedVuln = ref(null)
+const MODULES_PAGE_SIZE = 8
 
 const modules = ref([])
+const modulePage = ref(1)
 const moduleEtaMin = ref({})
 const selected = ref(new Set())
 const commands = ref([])
@@ -61,11 +53,26 @@ const reportContent = ref('')
 
 const isRunning = computed(() => workflow.value.running)
 const isPaused = computed(() => workflow.value.paused)
-
-const demoVulns = computed(() => {
-  const list = demoType.value === 'poc' ? POC_DEMO_LIST : EXP_DEMO_LIST
-  return vulnStore.vulnerabilities.filter(v => list.includes(v.name))
+const moduleTotalPages = computed(() => Math.max(1, Math.ceil(modules.value.length / MODULES_PAGE_SIZE)))
+const pagedModules = computed(() => {
+  const start = (modulePage.value - 1) * MODULES_PAGE_SIZE
+  return modules.value.slice(start, start + MODULES_PAGE_SIZE)
 })
+
+function clampModulePage() {
+  if (modulePage.value < 1) modulePage.value = 1
+  if (modulePage.value > moduleTotalPages.value) modulePage.value = moduleTotalPages.value
+}
+
+function prevModulePage() {
+  if (modulePage.value <= 1) return
+  modulePage.value -= 1
+}
+
+function nextModulePage() {
+  if (modulePage.value >= moduleTotalPages.value) return
+  modulePage.value += 1
+}
 
 function loadHistory() {
   try {
@@ -308,6 +315,7 @@ async function loadModules() {
       modules.value = all
       logLine('校验接口返回 0 个可用模块，已降级为显示全部模块', 'warn')
     }
+    clampModulePage()
     selected.value = new Set([...selected.value].filter((m) => modules.value.includes(m)))
     const hidden = Math.max(all.length - modules.value.length, 0)
     logLine(`可用模块 ${modules.value.length}` + (hidden ? `，未就绪 ${hidden}` : ''), 'info')
@@ -745,32 +753,10 @@ function copyText(text) {
   )
 }
 
-function selectVuln(vuln) {
-  selectedVuln.value = vuln
-  if (modules.value.includes(vuln.name)) {
-    selected.value.clear()
-    selected.value.add(vuln.name)
-  }
-}
-
-function goBack() {
-  router.back()
-}
-
 onMounted(() => {
   startHeartbeatWatcher()
   uiTimer.value = setInterval(updateCurrentTiming, 1000)
   loadModules()
-  
-  if (route.query.type) {
-    demoType.value = route.query.type
-  }
-  if (route.query.vuln) {
-    const vuln = vulnStore.getVulnById(route.query.vuln)
-    if (vuln) {
-      selectVuln(vuln)
-    }
-  }
 })
 
 onUnmounted(() => {
@@ -784,23 +770,7 @@ onUnmounted(() => {
   <div class="demo-view">
     <div class="demo-header glass-card">
       <div class="header-left">
-        <h1 class="page-title">POC/EXP 平台演示</h1>
-        <div class="demo-tabs">
-          <button 
-            class="tab-btn" 
-            :class="{active: demoType === 'poc'}"
-            @click="demoType = 'poc'"
-          >
-            🎯 POC 演示
-          </button>
-          <button 
-            class="tab-btn" 
-            :class="{active: demoType === 'exp'}"
-            @click="demoType = 'exp'"
-          >
-            💥 EXP 演示
-          </button>
-        </div>
+        <h1 class="page-title">主机漏洞检测</h1>
       </div>
       <div class="header-right">
         <span class="status-badge" :class="wsState === '已连接' ? 'connected' : 'disconnected'">
@@ -812,35 +782,21 @@ onUnmounted(() => {
     <div class="demo-content">
       <div class="left-panel">
         <div class="card glass-card">
-          <h3>📋 可演示漏洞列表</h3>
-          <div class="vuln-list">
-            <div 
-              v-for="vuln in demoVulns" 
-              :key="vuln.id" 
-              class="vuln-item"
-              :class="{selected: selectedVuln?.id === vuln.id}"
-              @click="selectVuln(vuln)"
-            >
-              <div class="vuln-item-header">
-                <span class="vuln-name">{{ vuln.name }}</span>
-                <span class="risk-badge" :class="vuln.riskLevel">{{ vuln.riskText }}</span>
-              </div>
-              <p class="vuln-desc">{{ vuln.description }}</p>
-              <div class="vuln-tags">
-                <span class="tag">{{ vuln.attackType }}</span>
-                <span class="tag">{{ vuln.architecture }}</span>
-              </div>
+          <h3>1️⃣ 选择模块并生成命令</h3>
+          <div class="toolbar module-toolbar">
+            <button class="btn-primary" @click="createBundle">生成命令</button>
+            <div v-if="modules.length > 0" class="module-pager">
+              <button class="pager-btn" @click="prevModulePage" :disabled="modulePage <= 1" aria-label="上一页">
+                <span class="pager-icon">◀</span>
+              </button>
+              <span class="pager-info">漏洞选项 {{ modulePage }} / {{ moduleTotalPages }}</span>
+              <button class="pager-btn" @click="nextModulePage" :disabled="modulePage >= moduleTotalPages" aria-label="下一页">
+                <span class="pager-icon">▶</span>
+              </button>
             </div>
           </div>
-        </div>
-
-        <div class="card glass-card">
-          <h3>1️⃣ 选择模块并生成命令</h3>
-          <div class="toolbar">
-            <button class="btn-primary" @click="createBundle">生成命令</button>
-          </div>
           <div class="module-list">
-            <label v-for="name in modules" :key="name" class="module-item">
+            <label v-for="name in pagedModules" :key="name" class="module-item">
               <input 
                 type="checkbox" 
                 :checked="selected.has(name)"
@@ -1045,32 +1001,6 @@ onUnmounted(() => {
   margin: 0;
 }
 
-.demo-tabs {
-  display: flex;
-  gap: 10px;
-}
-
-.tab-btn {
-  padding: 10px 20px;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--border-glow);
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.tab-btn:hover {
-  background: rgba(0, 212, 255, 0.1);
-}
-
-.tab-btn.active {
-  background: rgba(0, 212, 255, 0.2);
-  border-color: var(--secondary);
-  color: var(--secondary);
-}
-
 .status-badge {
   padding: 6px 15px;
   border-radius: 20px;
@@ -1111,88 +1041,17 @@ onUnmounted(() => {
   margin-bottom: 15px;
 }
 
-.vuln-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: 300px;
-  overflow-y: auto;
-  margin-bottom: 15px;
-}
-
-.vuln-item {
-  padding: 12px;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--border-glow);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.vuln-item:hover {
-  border-color: var(--secondary);
-}
-
-.vuln-item.selected {
-  border-color: var(--secondary);
-  background: rgba(0, 212, 255, 0.1);
-}
-
-.vuln-item-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.vuln-name {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 14px;
-  font-weight: 600;
-  color: #fff;
-}
-
-.risk-badge {
-  padding: 3px 10px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.risk-badge.high { background: rgba(255, 51, 102, 0.2); color: var(--danger); }
-.risk-badge.medium { background: rgba(255, 170, 0, 0.2); color: var(--warning); }
-.risk-badge.low { background: rgba(0, 255, 157, 0.2); color: var(--success); }
-
-.vuln-desc {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
-  line-height: 1.5;
-  margin-bottom: 8px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.vuln-tags {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.tag {
-  padding: 2px 8px;
-  background: rgba(0, 212, 255, 0.15);
-  border-radius: 10px;
-  font-size: 10px;
-  color: var(--secondary);
-}
-
 .toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 15px;
+}
+
+.module-toolbar {
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .btn-primary {
@@ -1208,6 +1067,46 @@ onUnmounted(() => {
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 8px;
   margin-bottom: 15px;
+}
+
+.module-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.pager-btn {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid var(--border-glow);
+  background: rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+
+.pager-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pager-icon {
+  color: var(--secondary);
+  font-size: 14px;
+  line-height: 1;
+  transform: translateY(-0.5px);
+}
+
+.pager-info {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.72);
+  min-width: 110px;
+  text-align: center;
 }
 
 .module-item {
@@ -1652,6 +1551,11 @@ onUnmounted(() => {
 @media (max-width: 1200px) {
   .demo-content {
     grid-template-columns: 1fr;
+  }
+
+  .module-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 </style>

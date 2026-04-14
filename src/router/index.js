@@ -23,13 +23,13 @@ const routes = [
     path: '/detect',
     name: 'Detect',
     component: () => import('../views/DetectView.vue'),
-    meta: { title: '代码安全检测' }
+    meta: { title: '代码安全检测', keepAlive: true }
   },
   {
     path: '/demo',
     name: 'Demo',
     component: () => import('../views/DemoView.vue'),
-    meta: { title: 'POC/EXP演示' }
+    meta: { title: '主机漏洞检测', keepAlive: true }
   },
   {
     path: '/detail/:id',
