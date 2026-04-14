@@ -1,11 +1,12 @@
 <script setup>
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import MarkdownIt from 'markdown-it'
 import { useVulnStore } from '../stores/vulnStore'
-import { isPocDemoAvailable } from '../config/demoConfig'
 
-const router = useRouter()
 const vulnStore = useVulnStore()
+const md = new MarkdownIt({ html: false, linkify: true, breaks: true })
+
+const HOST_DETECT_API_BASE = (import.meta.env.VITE_HOST_DETECT_API_BASE || 'http://127.0.0.1:8090').replace(/\/$/, '')
 
 const searchKeyword = ref('')
 const selectedCveType = ref('')
@@ -15,10 +16,24 @@ const selectedRisk = ref('')
 
 const showModal = ref(false)
 const selectedVuln = ref(null)
+const actionError = ref('')
 
-const isRunning = ref(false)
-const runResult = ref(null)
-const runError = ref('')
+const showReportModal = ref(false)
+const reportLoading = ref(false)
+const reportError = ref('')
+const reportTitle = ref('')
+const reportHtml = ref('')
+
+const riskLevels = [
+  { label: '全部风险', value: '' },
+  { label: '高危', value: 'high' },
+  { label: '中危', value: 'medium' },
+  { label: '低危', value: 'low' }
+]
+
+const cveTypes = computed(() => [{ label: '全部类型', value: '' }, ...vulnStore.cveTypes])
+const attackTypes = computed(() => [{ label: '全部攻击类型', value: '' }, ...vulnStore.attackTypes])
+const architectures = computed(() => [{ label: '全部架构', value: '' }, ...vulnStore.architectures])
 
 const filteredVulns = computed(() => {
   return vulnStore.searchVulns(searchKeyword.value, {
@@ -29,171 +44,138 @@ const filteredVulns = computed(() => {
   })
 })
 
-const cveTypes = [
-  { label: '全部类型', value: '' },
-  { label: '侧信道漏洞', value: '侧信道漏洞' },
-  { label: '瞬态执行漏洞', value: '瞬态执行漏洞' },
-  { label: '架构错误漏洞', value: '架构错误漏洞' }
-]
-
-const attackTypes = [
-  { label: '全部攻击类型', value: '' },
-  { label: 'Cache侧信道攻击', value: 'Cache侧信道攻击' },
-  { label: 'Timing侧信道攻击', value: 'Timing侧信道攻击' },
-  { label: 'Power侧信道攻击', value: 'Power侧信道攻击' },
-  { label: 'Meltdown类攻击', value: 'Meltdown类攻击' },
-  { label: 'Spectre类攻击', value: 'Spectre类攻击' },
-  { label: '架构错误', value: '架构错误' }
-]
-
-const architectures = [
-  { label: '全部架构', value: '' },
-  { label: 'Intel', value: 'Intel' },
-  { label: 'AMD', value: 'AMD' },
-  { label: 'ARM', value: 'ARM' },
-  { label: 'RISC-V', value: 'RISC-V' }
-]
-
-const riskLevels = [
-  { label: '全部风险', value: '' },
-  { label: '高危', value: 'high' },
-  { label: '中危', value: 'medium' },
-  { label: '低危', value: 'low' }
-]
+const hasCodeType = (vuln, type) => Array.isArray(vuln?.codeTags) && vuln.codeTags.includes(type)
 
 const openDetail = (vuln) => {
   selectedVuln.value = vuln
-  runResult.value = null
-  runError.value = ''
+  actionError.value = ''
   showModal.value = true
-}
-
-const downloadCode = (vuln, codeType) => {
-  const code = codeType === 'poc' ? vuln.pocCode : vuln.expAttackerCode
-  const filename = `${vuln.name}_${codeType}.c`
-  
-  const blob = new Blob([code], { type: 'text/plain' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-const API_BASE_URL = 'http://localhost:8080/api'
-
-const runPoc = async () => {
-  if (!selectedVuln.value?.runSupport) return
-  
-  isRunning.value = true
-  runResult.value = null
-  runError.value = ''
-  
-  try {
-    const response = await fetch(`${API_BASE_URL}/run-poc`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        vulnId: selectedVuln.value.id,
-        vulnName: selectedVuln.value.name,
-        pocCode: selectedVuln.value.pocCode
-      })
-    })
-    
-    if (!response.ok) {
-      throw new Error(`请求失败: ${response.status}`)
-    }
-    
-    const data = await response.json()
-    runResult.value = data
-  } catch (error) {
-    runError.value = error.message || '运行失败，请稍后重试'
-    runResult.value = {
-      success: false,
-      output: `[示例输出] 运行 POC: ${selectedVuln.value.name}\n\n[√] 初始化缓存探测...\n[√] 训练分支预测器...\n[√] 触发瞬态执行...\n[×] 攻击失败: 需要root权限或特定CPU支持\n\n[*] 说明: 此为演示环境，实际运行需要后端服务支持`,
-      executionTime: '0.012s',
-      memoryUsage: '2.4MB'
-    }
-  } finally {
-    isRunning.value = false
-  }
 }
 
 const closeModal = () => {
   showModal.value = false
   selectedVuln.value = null
-  runResult.value = null
-  runError.value = ''
+  actionError.value = ''
 }
 
-const goToDemo = (vuln) => {
-  router.push({
-    path: '/demo',
-    query: {
-      type: 'poc',
-      vuln: vuln.id
+const parseFilename = (contentDisposition, fallback) => {
+  if (!contentDisposition) return fallback
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
+  if (utf8Match && utf8Match[1]) return decodeURIComponent(utf8Match[1])
+  const plainMatch = contentDisposition.match(/filename="?([^";]+)"?/i)
+  return plainMatch?.[1] || fallback
+}
+
+const downloadCode = async (vuln, artifact) => {
+  actionError.value = ''
+  const fallback = `${vuln.name}_${artifact}.c`
+  const url = `${HOST_DETECT_API_BASE}/api/v1/vulnerabilities/by-name/${encodeURIComponent(vuln.name)}/artifacts/${encodeURIComponent(artifact)}`
+
+  try {
+    const response = await fetch(url, { method: 'GET' })
+    if (!response.ok) {
+      const text = await response.text()
+      throw new Error(text || `下载失败(${response.status})`)
     }
-  })
+
+    const blob = await response.blob()
+    const filename = parseFilename(response.headers.get('content-disposition'), fallback)
+    const href = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = href
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(href)
+  } catch (err) {
+    actionError.value = err.message || '下载失败，请稍后重试'
+  }
 }
 
-const hasDemo = (vuln) => {
-  return isPocDemoAvailable(vuln?.name)
+const resolveReportPath = (vuln) => {
+  if (vuln.reportPath && String(vuln.reportPath).trim()) {
+    return vuln.reportPath
+  }
+  return `/reports/${encodeURIComponent(vuln.name)}.md`
 }
+
+const openReport = async (vuln) => {
+  reportTitle.value = `${vuln.name} 实验报告`
+  reportLoading.value = true
+  reportError.value = ''
+  reportHtml.value = ''
+  showReportModal.value = true
+
+  try {
+    const response = await fetch(resolveReportPath(vuln), { cache: 'no-cache' })
+    if (!response.ok) {
+      throw new Error(`报告加载失败(${response.status})`)
+    }
+    const markdown = await response.text()
+    reportHtml.value = md.render(markdown)
+  } catch (err) {
+    reportError.value = err.message || '报告加载失败'
+  } finally {
+    reportLoading.value = false
+  }
+}
+
+const closeReport = () => {
+  showReportModal.value = false
+  reportLoading.value = false
+  reportError.value = ''
+  reportHtml.value = ''
+}
+
+onMounted(() => {
+  vulnStore.loadVulnerabilities()
+})
 </script>
 
 <template>
   <div class="poc-view">
-    <!-- 搜索和筛选区域 -->
     <div class="filter-section glass-card">
       <div class="search-box">
         <span class="search-icon">🔍</span>
-        <input 
-          v-model="searchKeyword" 
-          type="text" 
-          placeholder="搜索漏洞名称、CVE类型、描述..."
+        <input
+          v-model="searchKeyword"
+          type="text"
+          placeholder="搜索漏洞名称、CVE编号、简介..."
           class="search-input"
         />
       </div>
-      
+
       <div class="filter-group">
         <select v-model="selectedCveType" class="filter-select">
-          <option v-for="item in cveTypes" :key="item.value" :value="item.value">
-            {{ item.label }}
-          </option>
+          <option v-for="item in cveTypes" :key="item.value" :value="item.value">{{ item.label }}</option>
         </select>
-        
+
         <select v-model="selectedAttackType" class="filter-select">
-          <option v-for="item in attackTypes" :key="item.value" :value="item.value">
-            {{ item.label }}
-          </option>
+          <option v-for="item in attackTypes" :key="item.value" :value="item.value">{{ item.label }}</option>
         </select>
-        
+
         <select v-model="selectedArch" class="filter-select">
-          <option v-for="item in architectures" :key="item.value" :value="item.value">
-            {{ item.label }}
-          </option>
+          <option v-for="item in architectures" :key="item.value" :value="item.value">{{ item.label }}</option>
         </select>
-        
+
         <select v-model="selectedRisk" class="filter-select">
-          <option v-for="item in riskLevels" :key="item.value" :value="item.value">
-            {{ item.label }}
-          </option>
+          <option v-for="item in riskLevels" :key="item.value" :value="item.value">{{ item.label }}</option>
         </select>
       </div>
-      
+
       <div class="result-count">
         找到 <span class="count">{{ filteredVulns.length }}</span> 个漏洞详情
       </div>
     </div>
 
-    <!-- POC卡片列表 -->
-    <div class="poc-grid">
-      <div 
-        v-for="vuln in filteredVulns" 
-        :key="vuln.id" 
+    <div v-if="vulnStore.loadError" class="empty-state">
+      <h3>漏洞数据加载失败</h3>
+      <p>{{ vulnStore.loadError }}</p>
+    </div>
+
+    <div v-else class="poc-grid">
+      <div
+        v-for="vuln in filteredVulns"
+        :key="vuln.id"
         class="vuln-card glass-card"
         :class="vuln.riskLevel"
       >
@@ -201,62 +183,41 @@ const hasDemo = (vuln) => {
           <h3 class="vuln-name">{{ vuln.name }}</h3>
           <span class="risk-badge" :class="vuln.riskLevel">{{ vuln.riskText }}</span>
         </div>
-        
+
         <div class="vuln-meta">
-          <span class="meta-item">
-            <span class="meta-icon">🎯</span>
-            {{ vuln.attackType }}
-          </span>
-          <span class="meta-item">
-            <span class="meta-icon">💻</span>
-            {{ vuln.architecture }}
-          </span>
+          <span class="meta-item"><span class="meta-icon">🆔</span>{{ vuln.cveId }}</span>
+          <span class="meta-item"><span class="meta-icon">🎯</span>{{ vuln.attackType }}</span>
+          <span class="meta-item"><span class="meta-icon">💻</span>{{ vuln.architecture }}</span>
         </div>
-        
-        <p class="vuln-desc">{{ vuln.description }}</p>
+
+        <p class="vuln-desc">{{ vuln.summary }}</p>
 
         <div class="code-types">
-          <span class="type-badge poc">POC</span>
-          <span class="type-badge exp">EXP</span>
+          <span v-if="hasCodeType(vuln, 'poc')" class="type-badge poc">POC</span>
+          <span v-if="hasCodeType(vuln, 'exp')" class="type-badge exp">EXP</span>
         </div>
-        
-        <div class="vuln-tags">
-          <span v-for="tag in vuln.tags" :key="tag" class="tag">{{ tag }}</span>
-        </div>
-        
+
         <div class="vuln-stats">
           <div class="stat">
-            <span class="stat-label">成功率</span>
-            <span class="stat-value">{{ vuln.successRate }}</span>
-          </div>
-          <div class="stat">
-            <span class="stat-label">平均耗时</span>
+            <span class="stat-label">平均检测用时</span>
             <span class="stat-value">{{ vuln.avgTime }}</span>
           </div>
         </div>
-        
+
         <div class="vuln-actions">
-          <button class="btn-detail" @click="openDetail(vuln)">
-            📖 查看详情
-          </button>
-          <button class="btn-download" @click.stop="downloadCode(vuln, 'poc')">
-            ⬇️ 下载POC
-          </button>
-          <button class="btn-download exp-btn" @click.stop="downloadCode(vuln, 'attacker')">
-            ⬇️ 下载EXP
-          </button>
+          <button class="btn-detail" @click="openDetail(vuln)">📖 查看详情</button>
+          <button v-if="hasCodeType(vuln, 'poc')" class="btn-download" @click.stop="downloadCode(vuln, 'poc')">⬇️ 下载POC</button>
+          <button v-if="hasCodeType(vuln, 'exp')" class="btn-download exp-btn" @click.stop="downloadCode(vuln, 'exp')">⬇️ 下载EXP</button>
         </div>
       </div>
     </div>
 
-    <!-- 无结果提示 -->
-    <div v-if="filteredVulns.length === 0" class="empty-state">
+    <div v-if="!vulnStore.loadError && filteredVulns.length === 0" class="empty-state">
       <div class="empty-icon">🔍</div>
       <h3>未找到匹配的漏洞</h3>
       <p>请尝试调整筛选条件</p>
     </div>
 
-    <!-- 详情弹窗 -->
     <div class="modal-overlay" :class="{active: showModal}" @click="closeModal">
       <div class="modal-content" v-if="selectedVuln" @click.stop>
         <div class="modal-header">
@@ -266,118 +227,73 @@ const hasDemo = (vuln) => {
           </div>
           <button class="modal-close" @click="closeModal">×</button>
         </div>
-        
+
         <div class="modal-body">
           <div class="vuln-section">
             <h4>📌 基本信息</h4>
             <div class="info-grid">
               <div class="info-item">
-                <span class="info-label">CVE类型</span>
-                <span class="info-value">{{ selectedVuln.cveType }}</span>
+                <span class="info-label">漏洞名</span>
+                <span class="info-value">{{ selectedVuln.name }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">CVE编号</span>
+                <span class="info-value">{{ selectedVuln.cveId }}</span>
               </div>
               <div class="info-item">
                 <span class="info-label">攻击类型</span>
                 <span class="info-value">{{ selectedVuln.attackType }}</span>
               </div>
               <div class="info-item">
-                <span class="info-label">处理器架构</span>
+                <span class="info-label">风险级别</span>
+                <span class="info-value">{{ selectedVuln.riskText }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">处理器平台</span>
                 <span class="info-value">{{ selectedVuln.architecture }}</span>
               </div>
               <div class="info-item">
-                <span class="info-label">成功率</span>
-                <span class="info-value">{{ selectedVuln.successRate }}</span>
+                <span class="info-label">平均检测用时</span>
+                <span class="info-value">{{ selectedVuln.avgTime }}</span>
               </div>
             </div>
           </div>
 
           <div class="vuln-section">
-            <h4>🔍 攻击原理</h4>
-            <p>{{ selectedVuln.description }}</p>
+            <h4>🔍 一句话简介</h4>
+            <p>{{ selectedVuln.summary }}</p>
           </div>
 
           <div class="vuln-section">
-            <h4>💻 POC代码</h4>
-            <div class="code-block">
-              <pre>{{ selectedVuln.pocCode }}</pre>
-            </div>
-          </div>
-
-          <div class="vuln-section">
-            <h4>⚙️ 支持平台</h4>
+            <h4>⚙️ 适用平台</h4>
             <div class="platform-list">
-              <span class="platform-item" v-for="os in selectedVuln.osSupport" :key="os">
-                {{ os }}
-              </span>
-            </div>
-            <div class="cpu-list">
-              <span v-for="cpu in selectedVuln.cpuModels" :key="cpu" class="cpu-item">
-                {{ cpu }}
-              </span>
+              <span class="platform-item" v-for="os in selectedVuln.osSupport" :key="os">{{ os }}</span>
             </div>
           </div>
 
-          <div class="vuln-section">
-            <h4>⚡ 在线运行</h4>
-            <div class="run-section">
-              <div v-if="hasDemo(selectedVuln)" class="run-enabled">
-                <p class="run-tip">该POC支持在线演示，点击下方按钮跳转到演示界面</p>
-                <div class="run-actions">
-                  <button 
-                    class="btn-demo" 
-                    @click="goToDemo(selectedVuln)"
-                  >
-                    🎬 前往演示界面
-                  </button>
-                </div>
-              </div>
-              <div v-else-if="selectedVuln.runSupport" class="run-enabled">
-                <p class="run-tip">该POC支持在线运行，点击下方按钮开始执行</p>
-                <div class="run-actions">
-                  <button 
-                    class="btn-run" 
-                    @click="runPoc" 
-                    :disabled="isRunning"
-                  >
-                    <span v-if="isRunning" class="loading-spinner"></span>
-                    <span v-else>▶️ 运行POC</span>
-                  </button>
-                </div>
-                <div v-if="runResult" class="run-result">
-                  <div class="result-header">
-                    <span class="result-status" :class="runResult.success ? 'success' : 'error'">
-                      {{ runResult.success ? '✅ 运行成功' : '❌ 运行失败' }}
-                    </span>
-                    <span v-if="runResult.executionTime" class="result-time">
-                      ⏱️ {{ runResult.executionTime }}
-                    </span>
-                    <span v-if="runResult.memoryUsage" class="result-memory">
-                      💾 {{ runResult.memoryUsage }}
-                    </span>
-                  </div>
-                  <div class="result-output">
-                    <pre>{{ runResult.output }}</pre>
-                  </div>
-                </div>
-                <div v-if="runError" class="run-error">
-                  {{ runError }}
-                </div>
-              </div>
-              <div v-else class="run-disabled">
-                <span class="unsupported-icon">🚫</span>
-                <p>该POC暂不支持在线运行</p>
-                <p class="unsupported-tip">请联系管理员添加运行支持</p>
-              </div>
-            </div>
-          </div>
+          <div v-if="actionError" class="run-error">{{ actionError }}</div>
 
           <div class="modal-actions">
-            <button class="btn-download" @click="downloadCode(selectedVuln, 'poc')">
-              ⬇️ 下载POC代码
-            </button>
-            <button class="btn-download exp-btn" @click="downloadCode(selectedVuln, 'attacker')">
-              ⬇️ 下载EXP代码
-            </button>
+            <button class="btn-detail" @click="openReport(selectedVuln)">🧪 查看实验报告</button>
+            <button v-if="hasCodeType(selectedVuln, 'poc')" class="btn-download" @click="downloadCode(selectedVuln, 'poc')">⬇️ 下载POC代码</button>
+            <button v-if="hasCodeType(selectedVuln, 'exp')" class="btn-download exp-btn" @click="downloadCode(selectedVuln, 'exp')">⬇️ 下载EXP代码</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" :class="{active: showReportModal}" @click="closeReport">
+      <div class="modal-content report-modal" @click.stop>
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <h3 class="modal-title">{{ reportTitle }}</h3>
+          </div>
+          <button class="modal-close" @click="closeReport">×</button>
+        </div>
+        <div class="modal-body report-body">
+          <div v-if="reportLoading" class="empty-state"><p>报告加载中...</p></div>
+          <div v-else-if="reportError" class="run-error">{{ reportError }}</div>
+          <article v-else class="markdown-body" v-html="reportHtml"></article>
         </div>
       </div>
     </div>
@@ -521,13 +437,6 @@ const hasDemo = (vuln) => {
   overflow: hidden;
 }
 
-.vuln-tags {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 15px;
-}
-
 .code-types {
   display: flex;
   gap: 8px;
@@ -549,14 +458,6 @@ const hasDemo = (vuln) => {
 .type-badge.exp {
   background: rgba(255, 51, 102, 0.15);
   color: var(--danger);
-}
-
-.tag {
-  padding: 4px 10px;
-  background: rgba(0, 212, 255, 0.15);
-  border-radius: 15px;
-  font-size: 11px;
-  color: var(--secondary);
 }
 
 .vuln-stats {
@@ -602,25 +503,19 @@ const hasDemo = (vuln) => {
 
 .btn-detail {
   flex: 1.2;
-}
-
-.btn-download {
-  flex: 1;
-}
-
-.btn-detail {
   background: rgba(0, 212, 255, 0.15);
   color: var(--secondary);
   border: 1px solid var(--border-glow);
 }
 
-.btn-detail:hover {
-  background: rgba(0, 212, 255, 0.25);
-}
-
 .btn-download {
+  flex: 1;
   background: linear-gradient(135deg, var(--secondary), var(--primary));
   color: #fff;
+}
+
+.btn-detail:hover {
+  background: rgba(0, 212, 255, 0.25);
 }
 
 .btn-download:hover {
@@ -704,11 +599,10 @@ const hasDemo = (vuln) => {
   color: #fff;
 }
 
-.platform-list, .cpu-list {
+.platform-list {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 10px;
 }
 
 .platform-item {
@@ -719,14 +613,6 @@ const hasDemo = (vuln) => {
   color: var(--success);
 }
 
-.cpu-item {
-  padding: 6px 14px;
-  background: rgba(0, 212, 255, 0.15);
-  border-radius: 20px;
-  font-size: 12px;
-  color: var(--secondary);
-}
-
 .modal-actions {
   display: flex;
   gap: 10px;
@@ -735,184 +621,85 @@ const hasDemo = (vuln) => {
   border-top: 1px solid var(--border-glow);
 }
 
-.run-section {
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 10px;
-  padding: 20px;
-}
-
-.run-tip {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
-  margin-bottom: 15px;
-}
-
-.run-actions {
-  margin-bottom: 15px;
-}
-
-.btn-run {
-  padding: 12px 30px;
-  background: linear-gradient(135deg, #00d4ff, #00ff9d);
-  border: none;
-  border-radius: 8px;
-  color: #000;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-run:hover:not(:disabled) {
-  box-shadow: 0 0 25px rgba(0, 212, 255, 0.5);
-  transform: translateY(-2px);
-}
-
-.btn-run:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.btn-demo {
-  padding: 12px 30px;
-  background: linear-gradient(135deg, #9b59b6, #8e44ad);
-  border: none;
-  border-radius: 8px;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-demo:hover {
-  box-shadow: 0 0 25px rgba(155, 89, 182, 0.5);
-  transform: translateY(-2px);
-}
-
-.loading-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(0, 0, 0, 0.3);
-  border-top-color: #000;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.run-result {
-  margin-top: 15px;
-}
-
-.result-header {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-}
-
-.result-status {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.result-status.success {
-  color: var(--success);
-}
-
-.result-status.error {
-  color: var(--danger);
-}
-
-.result-time, .result-memory {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.result-output {
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: 8px;
-  padding: 15px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.result-output pre {
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.9);
-  white-space: pre-wrap;
-  word-break: break-all;
-  margin: 0;
-}
-
 .run-error {
   margin-top: 10px;
-  padding: 10px;
-  background: rgba(255, 51, 102, 0.15);
+  padding: 12px;
+  background: rgba(255, 51, 102, 0.12);
+  border: 1px solid rgba(255, 51, 102, 0.3);
   border-radius: 8px;
-  color: var(--danger);
-  font-size: 13px;
+  color: #ff7b99;
+  font-size: 12px;
 }
 
-.run-disabled {
-  text-align: center;
-  padding: 30px 20px;
-  background: rgba(0, 0, 0, 0.2);
+.report-modal {
+  width: min(1000px, 90vw);
+}
+
+.report-body {
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.markdown-body {
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.75;
+}
+
+.markdown-body :deep(h1),
+.markdown-body :deep(h2),
+.markdown-body :deep(h3) {
+  color: var(--secondary);
+  margin-top: 1.2em;
+}
+
+.markdown-body :deep(code) {
+  background: rgba(0, 0, 0, 0.35);
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.markdown-body :deep(pre) {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--border-glow);
   border-radius: 10px;
+  padding: 12px;
+  overflow-x: auto;
 }
 
-.unsupported-icon {
-  font-size: 40px;
-  display: block;
-  margin-bottom: 15px;
+.markdown-body :deep(a) {
+  color: var(--secondary);
 }
 
-.run-disabled p {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.7);
-  margin: 0;
-}
-
-.unsupported-tip {
-  font-size: 12px !important;
-  color: rgba(255, 255, 255, 0.5) !important;
-  margin-top: 8px !important;
-}
-
-@media (max-width: 1200px) {
+@media (max-width: 1400px) {
   .poc-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   .poc-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .filter-section {
     flex-direction: column;
     align-items: stretch;
   }
-  
-  .filter-group {
-    width: 100%;
+
+  .search-box {
+    min-width: unset;
   }
-  
-  .filter-select {
-    flex: 1;
-    min-width: auto;
+
+  .modal-actions {
+    flex-direction: column;
+  }
+
+  .vuln-actions {
+    flex-direction: column;
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>
