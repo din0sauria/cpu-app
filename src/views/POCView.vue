@@ -185,7 +185,7 @@ const hasDemo = (vuln) => {
       </div>
       
       <div class="result-count">
-        找到 <span class="count">{{ filteredVulns.length }}</span> 个漏洞POC
+        找到 <span class="count">{{ filteredVulns.length }}</span> 个漏洞详情
       </div>
     </div>
 
@@ -214,6 +214,11 @@ const hasDemo = (vuln) => {
         </div>
         
         <p class="vuln-desc">{{ vuln.description }}</p>
+
+        <div class="code-types">
+          <span class="type-badge poc">POC</span>
+          <span class="type-badge exp">EXP</span>
+        </div>
         
         <div class="vuln-tags">
           <span v-for="tag in vuln.tags" :key="tag" class="tag">{{ tag }}</span>
@@ -236,6 +241,9 @@ const hasDemo = (vuln) => {
           </button>
           <button class="btn-download" @click.stop="downloadCode(vuln, 'poc')">
             ⬇️ 下载POC
+          </button>
+          <button class="btn-download exp-btn" @click.stop="downloadCode(vuln, 'attacker')">
+            ⬇️ 下载EXP
           </button>
         </div>
       </div>
@@ -365,6 +373,9 @@ const hasDemo = (vuln) => {
           <div class="modal-actions">
             <button class="btn-download" @click="downloadCode(selectedVuln, 'poc')">
               ⬇️ 下载POC代码
+            </button>
+            <button class="btn-download exp-btn" @click="downloadCode(selectedVuln, 'attacker')">
+              ⬇️ 下载EXP代码
             </button>
           </div>
         </div>
@@ -517,6 +528,29 @@ const hasDemo = (vuln) => {
   margin-bottom: 15px;
 }
 
+.code-types {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.type-badge {
+  padding: 3px 10px;
+  border-radius: 14px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.type-badge.poc {
+  background: rgba(0, 212, 255, 0.15);
+  color: var(--secondary);
+}
+
+.type-badge.exp {
+  background: rgba(255, 51, 102, 0.15);
+  color: var(--danger);
+}
+
 .tag {
   padding: 4px 10px;
   background: rgba(0, 212, 255, 0.15);
@@ -556,7 +590,7 @@ const hasDemo = (vuln) => {
 }
 
 .btn-detail, .btn-download {
-  flex: 1;
+  flex: 0 0 auto;
   padding: 10px 15px;
   border-radius: 8px;
   font-size: 13px;
@@ -564,6 +598,14 @@ const hasDemo = (vuln) => {
   cursor: pointer;
   transition: all 0.3s;
   border: none;
+}
+
+.btn-detail {
+  flex: 1.2;
+}
+
+.btn-download {
+  flex: 1;
 }
 
 .btn-detail {
@@ -583,6 +625,14 @@ const hasDemo = (vuln) => {
 
 .btn-download:hover {
   box-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
+}
+
+.btn-download.exp-btn {
+  background: linear-gradient(135deg, #ff3366, #cc2952);
+}
+
+.btn-download.exp-btn:hover {
+  box-shadow: 0 0 20px rgba(255, 51, 102, 0.4);
 }
 
 .empty-state {
@@ -678,6 +728,8 @@ const hasDemo = (vuln) => {
 }
 
 .modal-actions {
+  display: flex;
+  gap: 10px;
   margin-top: 20px;
   padding-top: 20px;
   border-top: 1px solid var(--border-glow);

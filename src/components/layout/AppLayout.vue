@@ -50,27 +50,21 @@ const menuItems = [
     children: [] 
   },
   { 
-    name: '漏洞POC', 
-    path: '/poc', 
+    name: '漏洞详情', 
+    path: '/vuln', 
     icon: '🎯',
-    children: [] 
-  },
-  { 
-    name: '漏洞EXP', 
-    path: '/exp', 
-    icon: '💥',
-    children: [] 
-  },
-  { 
-    name: '代码检测', 
-    path: '/detect', 
-    icon: '🔍',
     children: [] 
   },
   { 
     name: '主机漏洞检测', 
     path: '/demo', 
     icon: '🎬',
+    children: [] 
+  },
+  { 
+    name: '代码检测', 
+    path: '/detect', 
+    icon: '🔍',
     children: [] 
   }
 ]

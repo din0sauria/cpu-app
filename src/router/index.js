@@ -8,16 +8,18 @@ const routes = [
     meta: { title: '数据大屏' }
   },
   {
-    path: '/poc',
-    name: 'POC',
+    path: '/vuln',
+    name: 'Vuln',
     component: () => import('../views/POCView.vue'),
-    meta: { title: '漏洞POC展示' }
+    meta: { title: '漏洞详情' }
+  },
+  {
+    path: '/poc',
+    redirect: '/vuln'
   },
   {
     path: '/exp',
-    name: 'EXP',
-    component: () => import('../views/EXPView.vue'),
-    meta: { title: '漏洞EXP展示' }
+    redirect: '/vuln'
   },
   {
     path: '/detect',
