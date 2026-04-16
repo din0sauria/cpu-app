@@ -8,28 +8,30 @@ const routes = [
     meta: { title: '数据大屏' }
   },
   {
-    path: '/poc',
-    name: 'POC',
+    path: '/vuln',
+    name: 'Vuln',
     component: () => import('../views/POCView.vue'),
-    meta: { title: '漏洞POC展示' }
+    meta: { title: '漏洞详情' }
+  },
+  {
+    path: '/poc',
+    redirect: '/vuln'
   },
   {
     path: '/exp',
-    name: 'EXP',
-    component: () => import('../views/EXPView.vue'),
-    meta: { title: '漏洞EXP展示' }
+    redirect: '/vuln'
   },
   {
     path: '/detect',
     name: 'Detect',
     component: () => import('../views/DetectView.vue'),
-    meta: { title: '代码安全检测' }
+    meta: { title: '代码安全检测', keepAlive: true }
   },
   {
     path: '/demo',
     name: 'Demo',
     component: () => import('../views/DemoView.vue'),
-    meta: { title: 'POC/EXP演示' }
+    meta: { title: '主机漏洞检测', keepAlive: true }
   },
   {
     path: '/detail/:id',
