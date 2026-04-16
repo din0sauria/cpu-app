@@ -1,8 +1,8 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 
-const API_BASE = 'http://127.0.0.1:8090'
-const WS_BASE = 'ws://127.0.0.1:8090'
+const API_BASE = (import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8090').replace(/\/$/, '')
+const WS_BASE = (import.meta.env.VITE_WS_BASE || 'ws://127.0.0.1:8090').replace(/\/$/, '')
 const STORAGE_KEY = 'pocexp_frontend_report_cache_v1'
 const MODULES_PAGE_SIZE = 8
 

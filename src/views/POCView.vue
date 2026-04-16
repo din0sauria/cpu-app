@@ -6,7 +6,11 @@ import { useVulnStore } from '../stores/vulnStore'
 const vulnStore = useVulnStore()
 const md = new MarkdownIt({ html: false, linkify: true, breaks: true })
 
-const HOST_DETECT_API_BASE = (import.meta.env.VITE_HOST_DETECT_API_BASE || 'http://127.0.0.1:8090').replace(/\/$/, '')
+const API_BASE = (
+  import.meta.env.VITE_API_BASE ||
+  import.meta.env.VITE_HOST_DETECT_API_BASE ||
+  'http://127.0.0.1:8090'
+).replace(/\/$/, '')
 
 const searchKeyword = ref('')
 const selectedCveType = ref('')
@@ -69,7 +73,7 @@ const parseFilename = (contentDisposition, fallback) => {
 const downloadCode = async (vuln, artifact) => {
   actionError.value = ''
   const fallback = `${vuln.name}_${artifact}.c`
-  const url = `${HOST_DETECT_API_BASE}/api/v1/vulnerabilities/by-name/${encodeURIComponent(vuln.name)}/artifacts/${encodeURIComponent(artifact)}`
+  const url = `${API_BASE}/api/v1/vulnerabilities/by-name/${encodeURIComponent(vuln.name)}/artifacts/${encodeURIComponent(artifact)}`
 
   try {
     const response = await fetch(url, { method: 'GET' })

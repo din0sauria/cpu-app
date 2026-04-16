@@ -1,7 +1,7 @@
 <script setup>
 import { ref, reactive, computed, onUnmounted, nextTick } from 'vue'
 
-const API_BASE = 'http://10.201.66.137:5000'
+const CODE_DETECT_API_BASE = (import.meta.env.VITE_CODE_DETECT_API_BASE || 'http://127.0.0.1:5000').replace(/\/$/, '')
 
 const isAnalyzing = ref(false)
 const uploadFile = ref(null)
@@ -16,7 +16,6 @@ const taskId = ref('')
 const targetBin = ref('')
 const selectedDetectors = ref([])
 const isDragging = ref(false)
-const backendUrl = ref(API_BASE)
 
 const availableDetectors = [
   { value: 'flush_reload_branch', label: 'flush_reload_branch' },
@@ -146,7 +145,7 @@ const startAnalysis = async () => {
     formData.append('detectors', selectedDetectors.value.join(','))
   }
 
-  const baseUrl = backendUrl.value.trim().replace(/\/$/, '')
+  const baseUrl = CODE_DETECT_API_BASE
 
   try {
     const response = await fetch(`${baseUrl}/upload`, {
@@ -524,16 +523,6 @@ onUnmounted(() => {
           </div>
           
           <div class="panel-body">
-            <label class="form-label">
-              后端地址
-              <input 
-                type="url" 
-                v-model="backendUrl"
-                class="form-input"
-                placeholder="http://127.0.0.1:5000"
-              />
-            </label>
-
             <div 
               class="upload-zone"
               :class="{ 'drag-over': isDragging, 'has-file': uploadFile }"
