@@ -942,11 +942,11 @@ void compute() {
   ])
 
   const stats = ref({
-    totalPocs: 196,
-    totalExps: 87,
+    totalPocs: 20,
+    totalExps: 6,
     totalVulns: 432,
     totalHosts: 1287,
-    accuracy: 94,
+    accuracy: 84,
     weeklyNewPocs: 5,
     weeklyGrowth: 12.5
   })

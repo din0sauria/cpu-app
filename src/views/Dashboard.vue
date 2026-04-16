@@ -533,12 +533,12 @@ onUnmounted(() => {
         <div class="overview-stats">
           <div class="stat-item">
             <div class="stat-value">{{ animatedStats.hosts }}</div>
-            <div class="stat-label">已检测主机数</div>
+            <div class="stat-label">下载请求数</div>
             <div class="stat-change">↑ {{ vulnStore.stats.weeklyGrowth }}%</div>
           </div>
           <div class="stat-item">
             <div class="stat-value">{{ animatedStats.vulns }}</div>
-            <div class="stat-label">成功发现漏洞</div>
+            <div class="stat-label">演示请求数</div>
             <div class="stat-change">↑ 8.3%</div>
           </div>
           <div class="stat-item">
@@ -553,7 +553,7 @@ onUnmounted(() => {
           </div>
           <div class="stat-item">
             <div class="stat-value">{{ animatedStats.accuracy }}%</div>
-            <div class="stat-label">AI分析准确率</div>
+            <div class="stat-label">AI漏洞代码识别率</div>
             <div class="stat-change">↑ 2.1%</div>
           </div>
         </div>
