@@ -42,31 +42,36 @@ export const useVulnStore = defineStore('vuln', () => {
   const loading = ref(false)
   const loaded = ref(false)
   const loadError = ref('')
+  let loadingPromise = null
 
   const loadVulnerabilities = async (force = false) => {
-    if (loading.value) return
+    if (loading.value) return loadingPromise
     if (loaded.value && !force) return
 
     loading.value = true
     loadError.value = ''
-
-    try {
-      const response = await fetch(VULN_DATA_PATH, { cache: 'no-cache' })
-      if (!response.ok) {
-        throw new Error(`加载漏洞JSON失败: ${response.status}`)
+    loadingPromise = (async () => {
+      try {
+        const response = await fetch(VULN_DATA_PATH, { cache: 'no-cache' })
+        if (!response.ok) {
+          throw new Error(`加载漏洞JSON失败: ${response.status}`)
+        }
+        const raw = await response.json()
+        const list = Array.isArray(raw) ? raw : []
+        vulnerabilities.value = list.map(normalizeVuln)
+        loaded.value = true
+      } catch (err) {
+        vulnerabilities.value = []
+        loaded.value = false
+        loadError.value = err.message || '漏洞数据加载失败'
+        console.error('[vulnStore] load failed:', err)
+      } finally {
+        loading.value = false
+        loadingPromise = null
       }
-      const raw = await response.json()
-      const list = Array.isArray(raw) ? raw : []
-      vulnerabilities.value = list.map(normalizeVuln)
-      loaded.value = true
-    } catch (err) {
-      vulnerabilities.value = []
-      loaded.value = false
-      loadError.value = err.message || '漏洞数据加载失败'
-      console.error('[vulnStore] load failed:', err)
-    } finally {
-      loading.value = false
-    }
+    })()
+
+    return loadingPromise
   }
 
   const stats = computed(() => ({

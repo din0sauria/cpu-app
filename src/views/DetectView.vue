@@ -15,9 +15,14 @@ const sse = ref(null)
 const taskId = ref('')
 const targetBin = ref('')
 const selectedDetectors = ref([])
+const enablePhase3Screening = ref(true)
+const phase3FocusLeakTypes = ref('')
 const isDragging = ref(false)
 
 const availableDetectors = [
+  { value: 'spectre_v1', label: 'spectre_v1' },
+  { value: 'spectre_v2', label: 'spectre_v2' },
+  { value: 'spectre_v4', label: 'spectre_v4' },
   { value: 'flush_reload_branch', label: 'flush_reload_branch' },
   { value: 'prime_probe_array', label: 'prime_probe_array' }
 ]
@@ -26,8 +31,8 @@ const pipelineSteps = reactive([
   { id: 0, name: 'Phase 0', label: '初始化', status: 'pending', key: 'phase_0' },
   { id: 1, name: 'Phase 1', label: '预处理', status: 'pending', key: 'phase_1' },
   { id: 2, name: 'Phase 2', label: '静态分析', status: 'pending', key: 'phase_2' },
-  { id: 3, name: 'Phase 3', label: 'AI审计', status: 'pending', key: 'phase_3' },
-  { id: 4, name: 'Phase 4', label: '报告生成', status: 'pending', key: 'phase_4' }
+  { id: 3, name: 'Phase 3', label: 'AI语义初筛', status: 'pending', key: 'phase_3' },
+  { id: 4, name: 'Phase 4', label: '深度审计', status: 'pending', key: 'phase_4' }
 ])
 
 const currentPhase = ref(-1)
@@ -143,6 +148,10 @@ const startAnalysis = async () => {
   }
   if (selectedDetectors.value.length > 0) {
     formData.append('detectors', selectedDetectors.value.join(','))
+  }
+  formData.append('enable_phase3_screening', String(enablePhase3Screening.value))
+  if (enablePhase3Screening.value && phase3FocusLeakTypes.value.trim()) {
+    formData.append('phase3_focus_leak_types', phase3FocusLeakTypes.value.trim())
   }
 
   const baseUrl = CODE_DETECT_API_BASE
@@ -574,6 +583,24 @@ onUnmounted(() => {
                   <span class="check-label">{{ detector.label }}</span>
                 </label>
               </div>
+            </div>
+
+            <div class="phase3-section">
+              <label class="toggle-item">
+                <input type="checkbox" v-model="enablePhase3Screening" />
+                <span class="toggle-slider"></span>
+                <span class="toggle-label">启用阶段3（AI语义初筛）</span>
+              </label>
+              <label class="form-label">
+                phase3_focus_leak_types (可选，英文逗号分隔)
+                <input
+                  type="text"
+                  v-model="phase3FocusLeakTypes"
+                  :disabled="!enablePhase3Screening"
+                  placeholder="例如: 密钥泄漏,算法泄漏,身份令牌泄漏"
+                  class="form-input"
+                />
+              </label>
             </div>
 
             <div class="btn-row">
@@ -1145,6 +1172,60 @@ onUnmounted(() => {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.8);
   font-family: 'IBM Plex Mono', monospace;
+}
+
+.phase3-section {
+  margin-bottom: 14px;
+}
+
+.toggle-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-item input {
+  display: none;
+}
+
+.toggle-slider {
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.toggle-slider::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  transition: all 0.2s ease;
+}
+
+.toggle-item input:checked + .toggle-slider {
+  background: rgba(0, 212, 255, 0.25);
+  border-color: rgba(0, 212, 255, 0.6);
+}
+
+.toggle-item input:checked + .toggle-slider::after {
+  left: 17px;
+  background: var(--secondary);
+}
+
+.toggle-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .btn-row {
