@@ -44,7 +44,7 @@
   {
     "id": 4,
     "name": "Retbleed",
-    "codeTags": ["poc", "exp"],
+    "codeTags": ["poc"],
     "cveId": "CVE-2022-29900",
     "cveType": "瞬态执行漏洞",
     "osPlatforms": ["Linux"],
@@ -52,7 +52,7 @@
     "attackType": "Spectre类攻击",
     "riskLevel": "low",
     "summary": "利用返回指令的分支预测历史，通过RSB(Return Stack Buffer)泄露信息。",
-    "avgDetectTime": "45.6ms",
+    "avgDetectTime": "80000ms",
     "reportPath": ""
   },
   {
@@ -278,5 +278,47 @@
     "summary": "寄存器文件数据采样，利用CPU寄存器文件泄露敏感数据。",
     "avgDetectTime": "45.0ms",
     "reportPath": ""
+  },
+  {
+  "id": 21,
+  "name": "BPI",
+  "codeTags": ["poc"],
+  "cveId": "CVE-2024-45332",
+  "cveType": "瞬态执行漏洞",
+  "osPlatforms": ["Linux"],
+  "processorPlatforms": ["Intel"],
+  "attackType": "Spectre类攻击",
+  "riskLevel": "medium",
+  "summary": "利用分支预测器竞争条件(BPRC)泄露内核内存数据。",
+  "avgDetectTime": "300000.0ms",
+  "reportPath": ""
+  },
+  {
+  "id": 22,
+  "name": "ITS",
+  "codeTags": ["poc"],
+  "cveId": "CVE-2024-28956",
+  "cveType": "瞬态执行漏洞",
+  "osPlatforms": ["Linux"],
+  "processorPlatforms": ["Intel"],
+  "attackType": "Spectre类攻击",
+  "riskLevel": "medium",
+  "summary": "训练分支预测器，绕过eIBRS/IBPB域隔离泄露内核内存数据。",
+  "avgDetectTime": "60000.0ms",
+  "reportPath": ""
+  },
+  {
+  "id": 23,
+  "name": "GhostRace",
+  "codeTags": ["poc"],
+  "cveId": "CVE-2024-2193",
+  "cveType": "瞬态执行漏洞",
+  "osPlatforms": ["Linux"],
+  "processorPlatforms": ["Intel", "AMD"],
+  "attackType": "Spectre类攻击",
+  "riskLevel": "medium",
+  "summary": "利用Spectre v1类分支误预测绕过锁/同步原语,泄露内核内存数据。",
+  "avgDetectTime": "5000.0ms",
+  "reportPath": ""
   }
 ]
