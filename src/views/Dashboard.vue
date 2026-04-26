@@ -82,8 +82,7 @@ const barChartRef = ref(null)
 const mapChartRef = ref(null)
 let streamInterval = null
 let scanInterval = null
-let currentPipelineStep = 0
-let currentCodeLine = 0
+const currentPipelineStep = ref(0)
 
 const pipelineSteps = [
   { icon: '📥', label: '上传代码' },
@@ -100,7 +99,7 @@ const attackGenSteps = [
   { icon: '✅', label: '验证测试' }
 ]
 
-const vulnerableCodeLines = [
+const vulnerableCodeLines = ref([
   { lineNum: 1, text: 'void check_access(size_t index) {', type: 'normal' },
   { lineNum: 2, text: '  if (index < array_size) {', type: 'normal' },
   { lineNum: 3, text: '    char value = array[index];', type: 'vulnerable', vuln: '边界检查绕过' },
@@ -108,16 +107,16 @@ const vulnerableCodeLines = [
   { lineNum: 5, text: '  }', type: 'normal' },
   { lineNum: 6, text: '  return 0;', type: 'normal' },
   { lineNum: 7, text: '}', type: 'normal' }
-]
+])
 
 let scanLineIndex = 0
 
 const updateScanLine = () => {
-  vulnerableCodeLines.forEach((line, idx) => {
+  vulnerableCodeLines.value.forEach((line, idx) => {
     line.type = idx < scanLineIndex ? 'scanned' : (idx === scanLineIndex ? 'scanning' : 'pending')
   })
-  scanLineIndex = (scanLineIndex + 1) % (vulnerableCodeLines.length + 2)
-  if (scanLineIndex > vulnerableCodeLines.length) {
+  scanLineIndex = (scanLineIndex + 1) % (vulnerableCodeLines.value.length + 2)
+  if (scanLineIndex > vulnerableCodeLines.value.length) {
     scanLineIndex = 0
   }
 }
@@ -144,23 +143,51 @@ const initHeatmapChart = () => {
   if (!heatmapChartRef.value) return
   
   const chart = echarts.init(heatmapChartRef.value)
-  
-  const cpus = ['Intel', 'AMD', 'Apple M', '其他']
-  const oss = ['Windows', 'Linux', 'macOS', '其他']
-  const data = [
-    [0,0],[0,1],[0,2],[0,3],
-    [1,0],[1,1],[1,2],[1,3],
-    [2,0],[2,1],[2,2],[2,3],
-    [3,0],[3,1],[3,2],[3,3]
-  ].map(([i, j]) => {
-    const levels = [
-      [1, 1, 0.5, 0],
-      [0.5, 1, 0, 0],
-      [0, 0.3, 0.5, 0],
-      [1, 1, 0, 0]
-    ]
-    return [j, i, levels[i][j] || 0]
+
+  const preferredCpus = ['Intel', 'AMD', 'ARM', 'Apple M', '其他']
+  const preferredOs = ['Windows', 'Linux', 'macOS', '其他']
+  const cpuSet = new Set()
+  const osSet = new Set()
+  const countMap = new Map()
+
+  vulnStore.vulnerabilities.forEach((v) => {
+    const cpus = Array.isArray(v.processorPlatforms) && v.processorPlatforms.length > 0
+      ? v.processorPlatforms
+      : ['其他']
+    const oss = Array.isArray(v.osPlatforms) && v.osPlatforms.length > 0
+      ? v.osPlatforms
+      : ['其他']
+
+    cpus.forEach(cpu => cpuSet.add(cpu))
+    oss.forEach(os => osSet.add(os))
+
+    cpus.forEach((cpu) => {
+      oss.forEach((os) => {
+        const key = `${cpu}||${os}`
+        countMap.set(key, (countMap.get(key) || 0) + 1)
+      })
+    })
   })
+
+  const sortByPreferred = (values, preferred) => {
+    const unique = [...new Set(values)]
+    const inPreferred = preferred.filter(v => unique.includes(v))
+    const extras = unique.filter(v => !preferred.includes(v)).sort((a, b) => a.localeCompare(b))
+    return [...inPreferred, ...extras]
+  }
+
+  const cpus = sortByPreferred([...cpuSet], preferredCpus)
+  const oss = sortByPreferred([...osSet], preferredOs)
+
+  const data = []
+  cpus.forEach((cpu, cpuIdx) => {
+    oss.forEach((os, osIdx) => {
+      const key = `${cpu}||${os}`
+      data.push([osIdx, cpuIdx, countMap.get(key) || 0])
+    })
+  })
+
+  const maxValue = Math.max(1, ...data.map(item => item[2]))
 
   const option = {
     tooltip: { position: 'top' },
@@ -186,14 +213,14 @@ const initHeatmapChart = () => {
     },
     visualMap: {
       min: 0,
-      max: 1,
+      max: maxValue,
       calculable: true,
       orient: 'vertical',
       right: '2%',
       top: 'center',
       bottom: '10%',
       inRange: {
-        color: ['rgba(0,0,0,0.3)', 'rgba(0,255,157,0.4)', 'rgba(255,170,0,0.5)', 'rgba(255,51,102,0.6)']
+        color: ['#1e3a8a', '#2563eb', '#06b6d4', '#2dd4bf', '#facc15']
       },
       textStyle: { color: '#fff' }
     },
@@ -201,6 +228,10 @@ const initHeatmapChart = () => {
       type: 'heatmap',
       data: data,
       label: { show: false },
+      itemStyle: {
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        borderWidth: 1
+      },
       emphasis: {
         itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0, 212, 255, 0.5)' }
       }
@@ -215,11 +246,24 @@ const initTrendChart = () => {
   if (!trendChartRef.value) return
   
   const chart = echarts.init(trendChartRef.value)
+  const yearStats = {}
+
+  vulnStore.vulnerabilities.forEach((v) => {
+    const cveId = String(v.cveId || '')
+    const match = cveId.match(/CVE-(\d{4})-\d+/i)
+    if (!match) return
+
+    const year = match[1]
+    yearStats[year] = (yearStats[year] || 0) + 1
+  })
+
+  const years = Object.keys(yearStats).sort((a, b) => Number(a) - Number(b))
+  const cveSeries = years.map(year => yearStats[year])
   
   const option = {
     tooltip: { trigger: 'axis' },
     legend: {
-      data: ['POC数量', 'EXP数量'],
+      data: ['CVE漏洞数量'],
       textStyle: { color: '#00d4ff' },
       top: 0
     },
@@ -233,7 +277,7 @@ const initTrendChart = () => {
     xAxis: {
       type: 'category',
       boundaryGap: false,
-      data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+      data: years.length ? years : ['N/A'],
       axisLabel: { color: 'rgba(255,255,255,0.6)' },
       axisLine: { lineStyle: { color: 'rgba(0, 212, 255, 0.3)' } }
     },
@@ -245,28 +289,15 @@ const initTrendChart = () => {
     },
     series: [
       {
-        name: 'POC数量',
+        name: 'CVE漏洞数量',
         type: 'line',
         smooth: true,
-        data: [12, 15, 13, 18, 22, 20, 25],
+        data: years.length ? cveSeries : [0],
         itemStyle: { color: '#00d4ff' },
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
             { offset: 0, color: 'rgba(0, 212, 255, 0.5)' },
             { offset: 1, color: 'rgba(0, 212, 255, 0.1)' }
-          ])
-        }
-      },
-      {
-        name: 'EXP数量',
-        type: 'line',
-        smooth: true,
-        data: [8, 10, 9, 12, 14, 13, 16],
-        itemStyle: { color: '#00ff9d' },
-        areaStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(0, 255, 157, 0.5)' },
-            { offset: 1, color: 'rgba(0, 255, 157, 0.1)' }
           ])
         }
       }
@@ -287,7 +318,9 @@ const initPieChart = () => {
     cveTypes[v.cveType] = (cveTypes[v.cveType] || 0) + 1
   })
   
-  const data = Object.entries(cveTypes).map(([name, value]) => ({ name, value }))
+  const data = Object.entries(cveTypes)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
   
   const option = {
     tooltip: {
@@ -488,7 +521,7 @@ onMounted(async () => {
   })
 
   setInterval(() => {
-    currentPipelineStep = (currentPipelineStep + 1) % 5
+    currentPipelineStep.value = (currentPipelineStep.value + 1) % 5
   }, 2000)
 
   updateScanLine()
@@ -526,41 +559,6 @@ onUnmounted(() => {
 <template>
   <div class="dashboard">
     <div class="dashboard-grid">
-      <!-- 平台概览 -->
-      <div class="glass-card overview-card">
-        <div class="card-header">
-          <h3 class="card-title">💡 平台概览</h3>
-          <span class="card-badge">实时更新</span>
-        </div>
-        <div class="overview-stats">
-          <div class="stat-item">
-            <div class="stat-value">{{ animatedStats.hosts }}</div>
-            <div class="stat-label">下载数</div>
-            <div class="stat-change">↑ {{ vulnStore.stats.weeklyGrowth }}%</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value">{{ animatedStats.vulns }}</div>
-            <div class="stat-label">成功发现漏洞</div>
-            <div class="stat-change">↑ 8.3%</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value">{{ animatedStats.pocs }}</div>
-            <div class="stat-label">POC总数</div>
-            <div class="stat-change">+{{ vulnStore.stats.weeklyNewPocs }} 本周新增</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value">{{ animatedStats.exps }}</div>
-            <div class="stat-label">EXP演示数量</div>
-            <div class="stat-change">↑ 15.2%</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value">{{ animatedStats.accuracy }}%</div>
-            <div class="stat-label">AI分析准确率</div>
-            <div class="stat-change">↑ 2.1%</div>
-          </div>
-        </div>
-      </div>
-
       <!-- CVE类型饼图 -->
       <div class="glass-card pie-card">
         <div class="card-header">
@@ -611,7 +609,7 @@ onUnmounted(() => {
       <div class="glass-card trend-card">
         <div class="card-header">
           <h3 class="card-title">📈 漏洞资源增长趋势</h3>
-          <span class="card-badge">本周数据</span>
+          <span class="card-badge">按CVE年份</span>
         </div>
         <div ref="trendChartRef" class="chart-container" style="height: 300px;"></div>
       </div>
@@ -652,56 +650,6 @@ onUnmounted(() => {
             </div>
             <span v-if="idx < pipelineSteps.length - 1" class="pipeline-arrow">→</span>
           </template>
-        </div>
-      </div>
-
-      <!-- EXP生成流程示意 -->
-      <div class="glass-card exp-gen-card">
-        <div class="card-header">
-          <h3 class="card-title">💀 EXP攻击代码生成流程</h3>
-          <span class="card-badge">AI生成</span>
-        </div>
-        
-        <div class="exp-gen-flow">
-          <template v-for="(step, idx) in attackGenSteps" :key="idx">
-            <div class="gen-step">
-              <div class="gen-icon">{{ step.icon }}</div>
-              <div class="gen-label">{{ step.label }}</div>
-            </div>
-            <span v-if="idx < attackGenSteps.length - 1" class="gen-arrow">→</span>
-          </template>
-        </div>
-        
-        <div class="gen-desc">
-          <p>1. 识别用户代码中的潜在漏洞点</p>
-          <p>2. 基于漏洞类型调用AI模型生成攻击代码</p>
-          <p>3. 优化代码结构与可读性</p>
-          <p>4. 验证生成代码的正确性与危害性</p>
-        </div>
-      </div>
-
-
-
-
-      <!-- 全球POC/EXP更新实时流 -->
-      <div class="glass-card stream-card">
-        <div class="card-header">
-          <h3 class="card-title">🌐 平台上传 & 用户下载实时流</h3>
-          <span class="card-badge">最近动态</span>
-        </div>
-        <div class="stream-list">
-          <div 
-            v-for="(item, idx) in streamData" 
-            :key="idx" 
-            class="stream-item"
-            :class="item.type"
-          >
-            <span class="stream-flag">{{ item.flag }}</span>
-            <div class="stream-content">
-              <div class="stream-text">{{ item.text }}</div>
-              <div class="stream-meta">{{ item.time }}</div>
-            </div>
-          </div>
         </div>
       </div>
 
