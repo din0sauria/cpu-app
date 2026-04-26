@@ -1,6 +1,3 @@
-现在的项目是一个vite+vue3初始的模板
-
-我现在要使用AI做一个CPU漏洞检测代码下载平台（类似于资源下载站），让用户选择（输入）cpu型号和操作系统信息后提供可能存在CPU漏洞的POC和EXP代码。要求界面炫酷科技风，可以使用dataV，three等可视化库，首页需要一个展示平台功能的数据大屏，统计图要丰富，展示平台已有的poc和exp的信息体现平台优点特色，显示一些动态信息，最好有一些可以填随机数据实时更新的项目，现在没有后端，你需要填充一些编造的数据，但是注意要有可扩展性，我可以在后期方面地修改添加数据。注意采用组合式api风格，组件化实现，比如卡片可以作为一个组件，不要什么都写在同一个界面，UI样式可以参考draft.html（只参考样式，不要过多参考内容）。
 
 平台功能列表：
 
@@ -57,58 +54,3 @@ CVE类型	攻击类型	攻击名称	处理器架构	攻击描述
 架构错误漏洞		ÆPIC	Intel	APIC MMIO“陈旧”数据泄漏
         CacheWarp	AMD	未写回内存“陈旧”数据覆盖
         GhostWrite	RISC-V	向量指令任意内存写
-
-
-3. 用户上传代码进行静态漏洞检测（留出后端URL，先编写一个py脚本在本地端口运行本地模型推理，然后把代码发送过去）
-- 用户上传项目源代码（文件），在服务端进行匹配，寻找潜在的受害点->网页端回写
-
-- 针对上传代码（文件）潜在漏洞点生成攻击者代码->网页端回写
-
-本地模型推理脚本样例
-```py
-from transformers import AutoModelForCausalLM, AutoTokenizer
-
-model_name = "Qwen/Qwen3-0.6B"
-
-# load the tokenizer and the model
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForCausalLM.from_pretrained(
-    model_name,
-    torch_dtype="auto",
-    device_map="auto"
-)
-
-# prepare the model input
-prompt = "Give me a short introduction to large language model."
-messages = [
-    {"role": "user", "content": prompt}
-]
-text = tokenizer.apply_chat_template(
-    messages,
-    tokenize=False,
-    add_generation_prompt=True,
-    enable_thinking=True # Switches between thinking and non-thinking modes. Default is True.
-)
-model_inputs = tokenizer([text], return_tensors="pt").to(model.device)
-
-# conduct text completion
-generated_ids = model.generate(
-    **model_inputs,
-    max_new_tokens=32768
-)
-output_ids = generated_ids[0][len(model_inputs.input_ids[0]):].tolist() 
-
-# parsing thinking content
-try:
-    # rindex finding 151668 (</think>)
-    index = len(output_ids) - output_ids[::-1].index(151668)
-except ValueError:
-    index = 0
-
-thinking_content = tokenizer.decode(output_ids[:index], skip_special_tokens=True).strip("\n")
-content = tokenizer.decode(output_ids[index:], skip_special_tokens=True).strip("\n")
-
-print("thinking content:", thinking_content)
-print("content:", content)
-```
-
