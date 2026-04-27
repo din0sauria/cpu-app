@@ -38,7 +38,7 @@
     "attackType": "Meltdown类攻击",
     "riskLevel": "high",
     "summary": "针对Intel SGX Enclave的L1缓存攻击，可从安全飞地中提取敏感数据。",
-    "avgDetectTime": "10.0ms",
+    "avgDetectTime": "19140ms",
     "reportPath": "/reports/Foreshadow.md"
   },
   {
