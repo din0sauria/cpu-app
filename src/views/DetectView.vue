@@ -1,14 +1,10 @@
 <script setup>
-import { ref, reactive, computed, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, computed, watch, onUnmounted, nextTick } from 'vue'
 
 const CODE_DETECT_API_BASE = (import.meta.env.VITE_CODE_DETECT_API_BASE || 'http://127.0.0.1:5000').replace(/\/$/, '')
 
 const isAnalyzing = ref(false)
 const uploadFile = ref(null)
-const analysisResults = ref([])
-const generatedExp = ref('')
-const activeTab = ref('vuln')
-const showResult = ref(false)
 const errorMessage = ref('')
 const serverLogs = ref([])
 const sse = ref(null)
@@ -17,15 +13,29 @@ const targetBin = ref('')
 const selectedDetectors = ref([])
 const enablePhase3Screening = ref(true)
 const phase3FocusLeakTypes = ref('')
+const flushReloadMode = ref('')
 const isDragging = ref(false)
 
 const availableDetectors = [
   { value: 'spectre_v1', label: 'spectre_v1' },
   { value: 'spectre_v2', label: 'spectre_v2' },
   { value: 'spectre_v4', label: 'spectre_v4' },
+  { value: 'spectre_v5', label: 'spectre_v5' },
   { value: 'flush_reload_branch', label: 'flush_reload_branch' },
   { value: 'prime_probe_array', label: 'prime_probe_array' }
 ]
+
+const isFlushReloadSelected = computed(() => {
+  return selectedDetectors.value.includes('flush_reload_branch')
+})
+
+watch(isFlushReloadSelected, (enabled) => {
+  if (!enabled) flushReloadMode.value = ''
+})
+
+const toggleFlushReloadMode = (mode) => {
+  flushReloadMode.value = flushReloadMode.value === mode ? '' : mode
+}
 
 const pipelineSteps = reactive([
   { id: 0, name: 'Phase 0', label: '初始化', status: 'pending', key: 'phase_0' },
@@ -57,6 +67,25 @@ const candidates = ref([])
 const shortlist = ref([])
 const auditReports = ref([])
 const finalReport = ref(null)
+const showFinalPreviewModal = ref(false)
+
+const finalReportText = computed(() => {
+  if (!finalReport.value) return ''
+  if (typeof finalReport.value === 'string') return finalReport.value
+  if (typeof finalReport.value?.content === 'string') return finalReport.value.content
+  return JSON.stringify(finalReport.value, null, 2)
+})
+
+const finalReportPreviewText = computed(() => {
+  if (!finalReportText.value) return ''
+  const raw = finalReportText.value.trim()
+  if (!raw) return ''
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2)
+  } catch {
+    return raw
+  }
+})
 
 const handleFileSelect = (event) => {
   const file = event.target.files[0]
@@ -114,6 +143,7 @@ const resetDisplay = () => {
   shortlist.value = []
   auditReports.value = []
   finalReport.value = null
+  showFinalPreviewModal.value = false
   
   toolState.isScanning = false
   toolState.query = '暂无'
@@ -133,7 +163,6 @@ const startAnalysis = async () => {
   }
 
   isAnalyzing.value = true
-  showResult.value = false
   errorMessage.value = ''
   
   resetDisplay()
@@ -148,6 +177,9 @@ const startAnalysis = async () => {
   }
   if (selectedDetectors.value.length > 0) {
     formData.append('detectors', selectedDetectors.value.join(','))
+  }
+  if (isFlushReloadSelected.value && flushReloadMode.value) {
+    formData.append('flush_reload_mode', flushReloadMode.value)
   }
   formData.append('enable_phase3_screening', String(enablePhase3Screening.value))
   if (enablePhase3Screening.value && phase3FocusLeakTypes.value.trim()) {
@@ -341,7 +373,6 @@ const renderShortlist = (data) => {
 
 const renderAuditReports = (data) => {
   auditReports.value = Array.isArray(data) ? data : []
-  analysisResults.value = auditReports.value
 }
 
 const renderFinalReport = (data) => {
@@ -353,7 +384,6 @@ const finishAnalysis = () => {
     if (step.status === 'active') step.status = 'completed'
   })
   isAnalyzing.value = false
-  showResult.value = true
   toolState.isScanning = false
   
   if (sse.value) {
@@ -391,89 +421,60 @@ const addLog = (type, message) => {
   })
 }
 
-const generateExp = (vuln) => {
-  generatedExp.value = `/*
- * AI Generated Exploit Code
- * Target: ${vuln.func_name || 'unknown'}
- * Vulnerability: ${vuln.attack_type || '侧信道漏洞'}
- * Generated at: ${new Date().toISOString()}
- */
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-#include <x86intrin.h>
-
-// ============================================
-// Target: ${vuln.func_name || 'unknown'}
-// Attack Type: ${vuln.attack_type || '侧信道攻击'}
-// Leaked Info: ${vuln.leaked_info || '敏感信息'}
-// Reason: ${vuln.reason || '存在侧信道漏洞'}
-// ============================================
-
-#define CACHE_HIT_THRESHOLD 80
-#define STRIDE_LENGTH 4096
-
-uint8_t probe[256 * STRIDE_LENGTH];
-
-void flush_probe_buffer() {
-    for (int i = 0; i < 256; i++) {
-        _mm_clflush(&probe[i * STRIDE_LENGTH]);
-    }
-}
-
-uint64_t time_access(void *addr) {
-    uint64_t start, end;
-    start = __rdtsc();
-    volatile uint8_t x = *(uint8_t *)addr;
-    end = __rdtsc();
-    return end - start;
-}
-
-int check_cache_hit(int index) {
-    uint64_t time = time_access(&probe[index * STRIDE_LENGTH]);
-    return time < CACHE_HIT_THRESHOLD;
-}
-
-int main(int argc, char **argv) {
-    printf("[*] Exploit for ${vuln.attack_type || '侧信道漏洞'}\\n");
-    printf("[!] Target function: ${vuln.func_name || 'unknown'}\\n");
-    printf("[!] Reason: ${vuln.reason || '存在侧信道漏洞'}\\n");
-    printf("[+] Leaked Info: ${vuln.leaked_info || '敏感信息'}\\n");
-    
-    memset(probe, 1, sizeof(probe));
-    printf("[+] Exploit completed\\n");
-    return 0;
-}`
-  
-  activeTab.value = 'exp'
-}
-
 const formatFileSize = (bytes) => {
   if (bytes < 1024) return bytes + ' B'
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
-const downloadExp = () => {
-  if (!generatedExp.value) return
-  const blob = new Blob([generatedExp.value], { type: 'text/plain' })
+const toCellText = (value) => {
+  if (value === null || value === undefined) return ''
+  if (typeof value === 'object') return JSON.stringify(value)
+  return String(value)
+}
+
+const buildExcelTable = () => {
+  const source = finalReport.value
+  if (!source) return ''
+
+  let headers = []
+  let rows = []
+
+  if (Array.isArray(source) && source.length > 0 && source.every(item => item && typeof item === 'object' && !Array.isArray(item))) {
+    const headerSet = new Set()
+    source.forEach((item) => {
+      Object.keys(item).forEach((key) => headerSet.add(key))
+    })
+    headers = Array.from(headerSet)
+    rows = source.map((item) => headers.map((key) => toCellText(item[key])))
+  } else if (source && typeof source === 'object' && !Array.isArray(source)) {
+    headers = ['field', 'value']
+    rows = Object.entries(source).map(([key, value]) => [key, toCellText(value)])
+  } else {
+    headers = ['content']
+    rows = [[finalReportText.value]]
+  }
+
+  const headerHtml = headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')
+  const rowHtml = rows
+    .map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`)
+    .join('')
+
+  return `<table><thead><tr>${headerHtml}</tr></thead><tbody>${rowHtml}</tbody></table>`
+}
+
+const downloadFinalReportExcel = () => {
+  const tableHtml = buildExcelTable()
+  if (!tableHtml) return
+  const html = `<!doctype html><html><head><meta charset="utf-8"></head><body>${tableHtml}</body></html>`
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `exploit_${Date.now()}.c`
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+  a.download = `final_report_${taskId.value || 'task'}_${stamp}.xls`
   a.click()
   URL.revokeObjectURL(url)
-}
-
-const copyExp = async () => {
-  if (!generatedExp.value) return
-  try {
-    await navigator.clipboard.writeText(generatedExp.value)
-  } catch (err) {
-    console.error('复制失败:', err)
-  }
 }
 
 const escapeHtml = (raw) => {
@@ -581,6 +582,33 @@ onUnmounted(() => {
                   />
                   <span class="check-box"></span>
                   <span class="check-label">{{ detector.label }}</span>
+                </label>
+              </div>
+            </div>
+
+            <div v-if="isFlushReloadSelected" class="flush-mode-section">
+              <div class="radio-group">
+                <label class="radio-item">
+                  <input
+                    type="checkbox"
+                    name="flushReloadMode"
+                    value="strict_enhanced"
+                    :checked="flushReloadMode === 'strict_enhanced'"
+                    @change="toggleFlushReloadMode('strict_enhanced')"
+                  />
+                  <span class="radio-dot"></span>
+                  <span class="check-label">strict_enhanced</span>
+                </label>
+                <label class="radio-item">
+                  <input
+                    type="checkbox"
+                    name="flushReloadMode"
+                    value="relaxed"
+                    :checked="flushReloadMode === 'relaxed'"
+                    @change="toggleFlushReloadMode('relaxed')"
+                  />
+                  <span class="radio-dot"></span>
+                  <span class="check-label">relaxed</span>
                 </label>
               </div>
             </div>
@@ -787,7 +815,7 @@ onUnmounted(() => {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="(item, idx) in auditReports" :key="idx" class="audit-row" @click="generateExp(item)">
+                    <tr v-for="(item, idx) in auditReports" :key="idx">
                       <td class="func-cell">{{ item.func_name }}</td>
                       <td class="type-cell">{{ item.attack_type }}</td>
                       <td class="leak-cell">{{ item.leaked_info }}</td>
@@ -803,13 +831,15 @@ onUnmounted(() => {
           <div class="panel">
             <div class="panel-head">
               <h2>📄 final_report</h2>
+              <div v-if="finalReportText" class="final-actions">
+                <button class="btn-preview" @click="showFinalPreviewModal = true">预览</button>
+                <button class="btn-export" @click="downloadFinalReportExcel">⬇️ 导出</button>
+              </div>
             </div>
             <div class="panel-body data-panel">
               <div v-if="finalReport" class="scroll-box">
                 <pre class="final-report-pre">{{
-                  typeof finalReport === 'string' 
-                    ? finalReport 
-                    : (finalReport.content || JSON.stringify(finalReport, null, 2))
+                  finalReportText
                 }}</pre>
               </div>
               <div v-else class="empty-state">暂无数据</div>
@@ -817,17 +847,14 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div class="panel result-panel" v-if="showResult && auditReports.length > 0">
-          <div class="panel-head">
-            <h2>💥 EXP 生成</h2>
-            <div class="exp-actions">
-              <button class="btn-copy" @click="copyExp">📋 复制</button>
-              <button class="btn-download" @click="downloadExp">⬇️ 下载</button>
+        <div v-if="showFinalPreviewModal" class="preview-modal-mask" @click.self="showFinalPreviewModal = false">
+          <div class="preview-modal">
+            <div class="preview-modal-head">
+              <h3>final_report 预览</h3>
+              <button class="preview-close" @click="showFinalPreviewModal = false">×</button>
             </div>
-          </div>
-          <div class="panel-body">
-            <div class="exp-code">
-              <pre>{{ generatedExp || '点击上方 audit_reports 表格中的行生成 EXP' }}</pre>
+            <div class="preview-modal-body">
+              <pre class="preview-modal-pre">{{ finalReportPreviewText }}</pre>
             </div>
           </div>
         </div>
@@ -1113,6 +1140,10 @@ onUnmounted(() => {
   margin-bottom: 14px;
 }
 
+.flush-mode-section {
+  margin-bottom: 14px;
+}
+
 .detector-label {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.6);
@@ -1176,6 +1207,53 @@ onUnmounted(() => {
 
 .phase3-section {
   margin-bottom: 14px;
+}
+
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.radio-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 7px 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.radio-item:hover {
+  background: rgba(0, 212, 255, 0.1);
+}
+
+.radio-item input { display: none; }
+
+.radio-dot {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(0, 212, 255, 0.5);
+  border-radius: 50%;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.radio-item input:checked + .radio-dot {
+  border-color: var(--secondary);
+}
+
+.radio-item input:checked + .radio-dot::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--secondary);
 }
 
 .toggle-item {
@@ -1657,6 +1735,11 @@ onUnmounted(() => {
 .leak-cell { color: var(--accent); }
 .reason-cell { font-size: 10px; color: rgba(255, 255, 255, 0.7); }
 
+.final-actions {
+  display: flex;
+  gap: 6px;
+}
+
 .final-report-pre {
   margin: 0;
   padding: 10px;
@@ -1675,16 +1758,7 @@ onUnmounted(() => {
   font-size: 12px;
 }
 
-.result-panel .panel-head {
-  flex-wrap: wrap;
-}
-
-.exp-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.btn-copy, .btn-download {
+.btn-preview, .btn-export {
   padding: 6px 12px;
   border-radius: 6px;
   font-size: 11px;
@@ -1693,37 +1767,86 @@ onUnmounted(() => {
   transition: all 0.2s ease;
 }
 
-.btn-copy {
+.btn-preview {
   background: rgba(0, 212, 255, 0.2);
   border: 1px solid rgba(0, 212, 255, 0.3);
   color: var(--secondary);
 }
 
-.btn-copy:hover { background: rgba(0, 212, 255, 0.3); }
+.btn-preview:hover { background: rgba(0, 212, 255, 0.3); }
 
-.btn-download {
+.btn-export {
   background: linear-gradient(135deg, var(--accent), #00cc7d);
   border: none;
   color: #000;
 }
 
-.btn-download:hover { box-shadow: 0 0 15px rgba(0, 255, 157, 0.4); }
+.btn-export:hover { box-shadow: 0 0 15px rgba(0, 255, 157, 0.4); }
 
-.exp-code {
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(0, 212, 255, 0.2);
-  border-radius: 8px;
-  overflow: auto;
-  max-height: 300px;
+.preview-modal-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
 }
 
-.exp-code pre {
-  padding: 12px;
+.preview-modal {
+  width: min(980px, 100%);
+  max-height: 85vh;
+  background: #0b1530;
+  border: 1px solid rgba(0, 212, 255, 0.35);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+}
+
+.preview-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.25);
+}
+
+.preview-modal-head h3 {
   margin: 0;
+  font-size: 14px;
+  color: var(--secondary);
+  font-family: 'Orbitron', sans-serif;
+}
+
+.preview-close {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.preview-close:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.preview-modal-body {
+  max-height: calc(85vh - 54px);
+  overflow: auto;
+}
+
+.preview-modal-pre {
+  margin: 0;
+  padding: 14px 16px;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.88);
   white-space: pre-wrap;
   word-break: break-word;
 }
