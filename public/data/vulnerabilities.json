@@ -150,7 +150,7 @@
   "attackType": "Spectre类攻击",
   "riskLevel": "high",
   "summary": "利用边界检查绕过（PHT误预测）在瞬态窗口读取越界秘密，并通过Flush+Reload恢复敏感字符串。",
-  "avgDetectTime": "N/A",
+  "avgDetectTime": "10s",
   "reportPath": "/reports/Spectre_v1.md"
   },
   {
@@ -164,7 +164,7 @@
   "attackType": "Spectre类攻击",
   "riskLevel": "high",
   "summary": "通过BTB分支目标注入污染间接分支预测，使受害路径推测跳转到攻击路径并泄露字符S。",
-  "avgDetectTime": "N/A",
+  "avgDetectTime": "10s",
   "reportPath": "/reports/Spectre_v2.md"
   },
   {
@@ -176,9 +176,9 @@
   "osPlatforms": ["Linux"],
   "processorPlatforms": ["Intel", "AMD", "ARM"],
   "attackType": "Spectre类攻击",
-  "riskLevel": "medium",
+  "riskLevel": "10s",
   "summary": "利用Speculative Store Bypass在Store完成前读取旧值，借助Flush+Reload恢复INACCESSIBLE SECRET，存在噪声敏感性。",
-  "avgDetectTime": "N/A",
+  "avgDetectTime": "10s",
   "reportPath": "/reports/Spectre_v4.md"
   },
   {
@@ -192,7 +192,7 @@
   "attackType": "Spectre类攻击",
   "riskLevel": "medium",
   "summary": "利用RSB返回预测失配在多线程交错执行中触发瞬态泄露，运行中可稳定观测到目标字符S。",
-  "avgDetectTime": "N/A",
+  "avgDetectTime": "20s",
   "reportPath": "/reports/Spectre_v5.md"
   },
   {
@@ -206,7 +206,7 @@
   "attackType": "Cache侧信道攻击",
   "riskLevel": "medium",
   "summary": "通过Flush+Reload测时区分缓存命中与主存访问延迟，验证平台具备可分辨的缓存侧信道观测能力。",
-  "avgDetectTime": "N/A",
+  "avgDetectTime": "58ms",
   "reportPath": "/reports/Flush_Reload.md"
   },
   {
@@ -220,7 +220,7 @@
   "attackType": "Cache侧信道攻击",
   "riskLevel": "high",
   "summary": "通过Prime+Probe观测L1D缓存集合驱逐痕迹，对AES实现进行密钥高半字节推断，体现密钥相关信息泄露能力。",
-  "avgDetectTime": "N/A",
+  "avgDetectTime": "1s",
   "reportPath": "/reports/Prime_Probe.md"
   },
   {
@@ -248,7 +248,7 @@
   "attackType": "Timing侧信道攻击",
   "riskLevel": "high",
   "summary": "利用同核SMT线程间调度器队列争用放大执行延迟，通过Sender/Receiver双程序可观测跨线程干扰并推断受害执行行为。",
-  "avgDetectTime": "N/A",
+  "avgDetectTime": "2s",
   "reportPath": "/reports/SQUIP.md"
   }
 ]
