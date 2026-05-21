@@ -6,12 +6,6 @@ import { useVulnStore } from '../stores/vulnStore'
 const vulnStore = useVulnStore()
 const md = new MarkdownIt({ html: false, linkify: true, breaks: true })
 
-const API_BASE = (
-  import.meta.env.VITE_API_BASE ||
-  import.meta.env.VITE_HOST_DETECT_API_BASE ||
-  'http://127.0.0.1:8090'
-).replace(/\/$/, '')
-
 const searchKeyword = ref('')
 const selectedCveType = ref('')
 const selectedAttackType = ref('')
@@ -62,36 +56,22 @@ const closeModal = () => {
   actionError.value = ''
 }
 
-const parseFilename = (contentDisposition, fallback) => {
-  if (!contentDisposition) return fallback
-  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
-  if (utf8Match && utf8Match[1]) return decodeURIComponent(utf8Match[1])
-  const plainMatch = contentDisposition.match(/filename="?([^";]+)"?/i)
-  return plainMatch?.[1] || fallback
-}
-
 const downloadCode = async (vuln, artifact) => {
   actionError.value = ''
-  const fallback = `${vuln.name}_${artifact}.c`
-  const url = `${API_BASE}/api/v1/vulnerabilities/by-name/${encodeURIComponent(vuln.name)}/artifacts/${encodeURIComponent(artifact)}`
+  const filename = `${vuln.name}_${artifact}.zip`
+  const path = `/artifacts/${encodeURIComponent(filename)}`
 
   try {
-    const response = await fetch(url, { method: 'GET' })
+    const response = await fetch(path, { method: 'HEAD', cache: 'no-cache' })
     if (!response.ok) {
-      const text = await response.text()
-      throw new Error(text || `下载失败(${response.status})`)
+      throw new Error(`未找到文件：${filename}`)
     }
-
-    const blob = await response.blob()
-    const filename = parseFilename(response.headers.get('content-disposition'), fallback)
-    const href = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = href
+    a.href = path
     a.download = filename
     a.click()
-    URL.revokeObjectURL(href)
   } catch (err) {
-    actionError.value = err.message || '下载失败，请稍后重试'
+    actionError.value = err.message || '下载失败，请检查本地 zip 包是否存在'
   }
 }
 
@@ -555,9 +535,20 @@ onMounted(() => {
 }
 
 .modal-title-wrap {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 15px;
+  flex-wrap: wrap;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 15px;
 }
 
 .modal-close {
@@ -568,6 +559,9 @@ onMounted(() => {
   cursor: pointer;
   padding: 0;
   line-height: 1;
+  margin-left: auto;
+  flex-shrink: 0;
+  align-self: flex-start;
 }
 
 .vuln-section {

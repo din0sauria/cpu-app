@@ -141,7 +141,7 @@
   },
   {
   "id": 11,
-  "name": "Spectre V1",
+  "name": "Spectre_v1",
   "codeTags": ["poc"],
   "cveId": "CVE-2017-5753",
   "cveType": "瞬态执行漏洞",
@@ -155,7 +155,7 @@
   },
   {
   "id": 12,
-  "name": "Spectre V2",
+  "name": "Spectre_v2",
   "codeTags": ["poc"],
   "cveId": "CVE-2017-5715",
   "cveType": "瞬态执行漏洞",
@@ -169,7 +169,7 @@
   },
   {
   "id": 13,
-  "name": "Spectre V4",
+  "name": "Spectre_v4",
   "codeTags": ["poc"],
   "cveId": "CVE-2018-3639",
   "cveType": "瞬态执行漏洞",
@@ -183,7 +183,7 @@
   },
   {
   "id": 14,
-  "name": "Spectre V5",
+  "name": "Spectre_v5",
   "codeTags": ["poc"],
   "cveId": "CVE-2017-5715",
   "cveType": "瞬态执行漏洞",
@@ -197,7 +197,7 @@
   },
   {
   "id": 15,
-  "name": "Flush+Reload",
+  "name": "Flush_Reload",
   "codeTags": ["poc","exp"],
   "cveId": "CVE-2013-4242(GnuPG)",
   "cveType": "侧信道漏洞",
@@ -211,7 +211,7 @@
   },
   {
   "id": 16,
-  "name": "Prime+Probe",
+  "name": "Prime_Probe",
   "codeTags": ["poc", "exp"],
   "cveId": "CVE-2015-0837(GnuPG)",
   "cveType": "侧信道漏洞",
@@ -222,5 +222,33 @@
   "summary": "通过Prime+Probe观测L1D缓存集合驱逐痕迹，对AES实现进行密钥高半字节推断，体现密钥相关信息泄露能力。",
   "avgDetectTime": "N/A",
   "reportPath": "/reports/Prime_Probe.md"
+  },
+  {
+  "id": 17,
+  "name": "Hertzbleed",
+  "codeTags": ["poc"],
+  "cveId": "CVE-2022-24436",
+  "cveType": "侧信道漏洞",
+  "osPlatforms": ["Linux","Windows"],
+  "processorPlatforms": ["Intel","AMD"],
+  "attackType": "Power侧信道攻击",
+  "riskLevel": "medium",
+  "summary": "利用DVFS动态调频机制将负载相关功耗差异映射为远程可观测执行时间差，可用于区分int32与int32float等工作负载轨迹。",
+  "avgDetectTime": "180s",
+  "reportPath": "/reports/Hertzbleed.md"
+  },
+  {
+  "id": 18,
+  "name": "SQUIP",
+  "codeTags": ["poc"],
+  "cveId": "CVE-2021-46778",
+  "cveType": "侧信道漏洞",
+  "osPlatforms": ["Linux"],
+  "processorPlatforms": ["AMD"],
+  "attackType": "Timing侧信道攻击",
+  "riskLevel": "high",
+  "summary": "利用同核SMT线程间调度器队列争用放大执行延迟，通过Sender/Receiver双程序可观测跨线程干扰并推断受害执行行为。",
+  "avgDetectTime": "N/A",
+  "reportPath": "/reports/SQUIP.md"
   }
 ]

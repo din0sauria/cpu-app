@@ -9,6 +9,7 @@
 
 - 数据文件：`public/data/vulnerabilities.json`
 - 报告目录：`public/reports/`
+- 代码压缩包目录：`public/artifacts/`
 
 ---
 
@@ -58,6 +59,10 @@
   - 只有 `["exp"]`：只显示“下载EXP”
   - 两者都有：两个按钮都显示
   - 空数组：不显示下载按钮（不推荐）
+  - 前端下载文件名规则：
+    - `POC` -> `漏洞名_poc.zip`
+    - `EXP` -> `漏洞名_exp.zip`
+    - 漏洞名必须与 `name` 完全一致
 
 ### `cveId`
 - 类型：`string`
