@@ -250,5 +250,19 @@
   "summary": "利用同核SMT线程间调度器队列争用放大执行延迟，通过Sender/Receiver双程序可观测跨线程干扰并推断受害执行行为。",
   "avgDetectTime": "2s",
   "reportPath": "/reports/SQUIP.md"
+  },
+  {
+  "id": 19,
+  "name": "Meltdown-3a",
+  "codeTags": ["poc"],
+  "cveId": "N/A",
+  "cveType": "瞬态执行漏洞",
+  "osPlatforms": ["Linux"],
+  "processorPlatforms": ["Intel"],
+  "attackType": "Meltdown类攻击",
+  "riskLevel": "high",
+  "summary": "围绕 Meltdown-CPL-REG 与 CounterLeak 的 PoC 与案例研究，用性能计数器与 Flush+Reload 验证系统寄存器泄露面。",
+  "avgDetectTime": "N/A",
+  "reportPath": "/reports/Meltdown-3a.md"
   }
 ]
