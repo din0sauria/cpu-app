@@ -20,6 +20,7 @@ const activeTab = ref('attacker')
 const isRunning = ref(false)
 const runResult = ref(null)
 const runError = ref('')
+const downloadError = ref('')
 
 const filteredVulns = computed(() => {
   return vulnStore.searchVulns(searchKeyword.value, {
@@ -67,20 +68,25 @@ const openDetail = (vuln) => {
   activeTab.value = 'attacker'
   runResult.value = null
   runError.value = ''
+  downloadError.value = ''
   showModal.value = true
 }
 
-const downloadExp = (vuln, codeType) => {
-  const code = codeType === 'attacker' ? vuln.expAttackerCode : vuln.expVictimCode
-  const filename = `${vuln.name}_${codeType}.c`
-  
-  const blob = new Blob([code], { type: 'text/plain' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
+const downloadExp = async (vuln) => {
+  downloadError.value = ''
+  const filename = `${vuln.name}_exp.zip`
+  const path = `/artifacts/${encodeURIComponent(filename)}`
+
+  try {
+    const response = await fetch(path, { method: 'HEAD', cache: 'no-cache' })
+    if (!response.ok) throw new Error(`未找到文件：${filename}`)
+    const a = document.createElement('a')
+    a.href = path
+    a.download = filename
+    a.click()
+  } catch (error) {
+    downloadError.value = error.message || '下载失败，请检查本地 zip 包是否存在'
+  }
 }
 
 const API_BASE_URL = 'http://localhost:8080/api'
@@ -134,6 +140,7 @@ const closeModal = () => {
   selectedVuln.value = null
   runResult.value = null
   runError.value = ''
+  downloadError.value = ''
 }
 
 const goToDemo = (vuln) => {
@@ -242,7 +249,7 @@ const hasDemo = (vuln) => {
           <button class="btn-detail" @click="openDetail(vuln)">
             📖 查看详情
           </button>
-          <button class="btn-download" @click.stop="downloadExp(vuln, 'attacker')">
+          <button class="btn-download" @click.stop="downloadExp(vuln)">
             ⬇️ 下载EXP
           </button>
         </div>
@@ -295,7 +302,7 @@ const hasDemo = (vuln) => {
             <div class="code-block">
               <pre>{{ selectedVuln.expAttackerCode }}</pre>
             </div>
-            <button class="btn-download-full" @click="downloadExp(selectedVuln, 'attacker')">
+            <button class="btn-download-full" @click="downloadExp(selectedVuln)">
               ⬇️ 下载攻击者代码
             </button>
           </div>
@@ -309,9 +316,13 @@ const hasDemo = (vuln) => {
             <div class="code-block">
               <pre>{{ selectedVuln.expVictimCode }}</pre>
             </div>
-            <button class="btn-download-full" @click="downloadExp(selectedVuln, 'victim')">
+            <button class="btn-download-full" @click="downloadExp(selectedVuln)">
               ⬇️ 下载受害者代码
             </button>
+          </div>
+
+          <div v-if="downloadError" class="run-error">
+            {{ downloadError }}
           </div>
 
           <!-- 基本信息 -->
@@ -655,9 +666,20 @@ const hasDemo = (vuln) => {
 }
 
 .modal-title-wrap {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 15px;
+  flex-wrap: wrap;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 15px;
 }
 
 .modal-close {
@@ -668,6 +690,9 @@ const hasDemo = (vuln) => {
   cursor: pointer;
   padding: 0;
   line-height: 1;
+  margin-left: auto;
+  flex-shrink: 0;
+  align-self: flex-start;
 }
 
 .code-tabs {

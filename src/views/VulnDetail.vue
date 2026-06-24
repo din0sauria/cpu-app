@@ -17,21 +17,23 @@ onMounted(() => {
   loading.value = false
 })
 
-const downloadCode = (codeType) => {
+const downloadCode = async (codeType) => {
   if (!vuln.value) return
-  
-  const code = codeType === 'poc' ? vuln.value.pocCode : 
-               codeType === 'attacker' ? vuln.value.expAttackerCode : 
-               vuln.value.expVictimCode
-  const filename = `${vuln.value.name}_${codeType}.c`
-  
-  const blob = new Blob([code], { type: 'text/plain' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
+
+  const artifact = codeType === 'poc' ? 'poc' : 'exp'
+  const filename = `${vuln.value.name}_${artifact}.zip`
+  const path = `/artifacts/${encodeURIComponent(filename)}`
+
+  try {
+    const response = await fetch(path, { method: 'HEAD', cache: 'no-cache' })
+    if (!response.ok) throw new Error()
+    const a = document.createElement('a')
+    a.href = path
+    a.download = filename
+    a.click()
+  } catch {
+    window.alert(`未找到文件：${filename}`)
+  }
 }
 
 const goBack = () => {

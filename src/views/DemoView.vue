@@ -1,10 +1,12 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import MarkdownIt from 'markdown-it'
 
 const API_BASE = (import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8090').replace(/\/$/, '')
 const WS_BASE = (import.meta.env.VITE_WS_BASE || 'ws://127.0.0.1:8090').replace(/\/$/, '')
 const STORAGE_KEY = 'pocexp_frontend_report_cache_v1'
 const MODULES_PAGE_SIZE = 8
+const md = new MarkdownIt({ html: false, linkify: true })
 
 const modules = ref([])
 const modulePage = ref(1)
@@ -50,6 +52,11 @@ const liveLog = ref([])
 const showReportDialog = ref(false)
 const reportTitle = ref('')
 const reportContent = ref('')
+const reportHighlights = ref({
+  detectionItem: '-',
+  vulnerabilityConclusion: '-',
+  expectedTarget: '-'
+})
 
 const isRunning = computed(() => workflow.value.running)
 const isPaused = computed(() => workflow.value.paused)
@@ -58,6 +65,7 @@ const pagedModules = computed(() => {
   const start = (modulePage.value - 1) * MODULES_PAGE_SIZE
   return modules.value.slice(start, start + MODULES_PAGE_SIZE)
 })
+const reportHtml = computed(() => md.render(emphasizeReportMarkdown(String(reportContent.value || ''))))
 
 function clampModulePage() {
   if (modulePage.value < 1) modulePage.value = 1
@@ -213,9 +221,57 @@ function renderResults() {
   return workflow.value.results
 }
 
+function extractField(content, fieldName) {
+  const re = new RegExp(`(?:^|\\n)\\s*-?\\s*${fieldName}\\s*[:：]\\s*(.+)$`, 'm')
+  const m = String(content || '').match(re)
+  return m?.[1]?.trim() || ''
+}
+
+function parseReportHighlights(title, content) {
+  const raw = String(content || '')
+  const detection = extractField(raw, '检测项') || String(title || '').replace(/\s*报告\s*$/, '').trim() || '-'
+  const conclusion = extractField(raw, '漏洞结论') || '-'
+  const target = extractField(raw, '预期窃取目标') || '-'
+  return {
+    detectionItem: detection,
+    vulnerabilityConclusion: conclusion,
+    expectedTarget: target
+  }
+}
+
+function conclusionClass(text) {
+  const value = String(text || '')
+  if (value === '-' || !value) return 'unknown'
+  if (/(存在|可利用|高风险|显著)/.test(value) && !/(未发现|不存在|无漏洞|未检出)/.test(value)) return 'danger'
+  if (/(未发现|不存在|无漏洞|未检出|安全)/.test(value)) return 'safe'
+  return 'unknown'
+}
+
+function emphasizeReportMarkdown(content) {
+  const lines = String(content || '').split('\n')
+  let inFence = false
+  return lines
+    .map((line) => {
+      if (/^\s*```/.test(line)) {
+        inFence = !inFence
+        return line
+      }
+      if (inFence) return line
+
+      const m = line.match(/^\s*(?:[-*]\s*)?(检测项|漏洞结论|预期窃取目标)\s*[:：]\s*(.+?)\s*$/)
+      if (!m) return line
+
+      const label = m[1]
+      const value = m[2]
+      return `> **${label}**：${value}`
+    })
+    .join('\n')
+}
+
 function showReport(title, content) {
   reportTitle.value = title
   reportContent.value = content || '暂无报告'
+  reportHighlights.value = parseReportHighlights(title, reportContent.value)
   showReportDialog.value = true
 }
 
@@ -966,7 +1022,21 @@ onUnmounted(() => {
           <strong class="modal-title">{{ reportTitle }}</strong>
           <button class="modal-close" @click="closeReport">×</button>
         </div>
-        <pre class="report-content">{{ reportContent }}</pre>
+        <div class="report-focus-grid">
+          <div class="focus-card detection">
+            <div class="focus-label">检测项</div>
+            <div class="focus-value">{{ reportHighlights.detectionItem }}</div>
+          </div>
+          <div class="focus-card" :class="`conclusion-${conclusionClass(reportHighlights.vulnerabilityConclusion)}`">
+            <div class="focus-label">漏洞结论</div>
+            <div class="focus-value">{{ reportHighlights.vulnerabilityConclusion }}</div>
+          </div>
+          <div class="focus-card target">
+            <div class="focus-label">预期窃取目标</div>
+            <div class="focus-value">{{ reportHighlights.expectedTarget }}</div>
+          </div>
+        </div>
+        <article class="report-content markdown-body" v-html="reportHtml"></article>
       </div>
     </div>
   </div>
@@ -1540,12 +1610,140 @@ onUnmounted(() => {
   padding: 15px;
   background: rgba(0, 0, 0, 0.5);
   border-radius: 8px;
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  font-size: 13px;
   color: rgba(255, 255, 255, 0.9);
-  white-space: pre-wrap;
+  white-space: normal;
   max-height: 60vh;
   overflow-y: auto;
+}
+
+.report-focus-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.focus-card {
+  padding: 10px 12px;
+  border: 1px solid var(--border-glow);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.focus-card.detection {
+  border-color: rgba(0, 212, 255, 0.65);
+  box-shadow: inset 0 0 0 1px rgba(0, 212, 255, 0.2);
+}
+
+.focus-card.target {
+  border-color: rgba(255, 170, 0, 0.65);
+  box-shadow: inset 0 0 0 1px rgba(255, 170, 0, 0.18);
+}
+
+.focus-card.conclusion-danger {
+  border-color: rgba(255, 51, 102, 0.75);
+  box-shadow: inset 0 0 0 1px rgba(255, 51, 102, 0.25);
+}
+
+.focus-card.conclusion-safe {
+  border-color: rgba(0, 255, 157, 0.75);
+  box-shadow: inset 0 0 0 1px rgba(0, 255, 157, 0.2);
+}
+
+.focus-card.conclusion-unknown {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.focus-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 6px;
+}
+
+.focus-value {
+  font-size: 13px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.95);
+  word-break: break-word;
+}
+
+.markdown-body {
+  line-height: 1.6;
+}
+
+.markdown-body :deep(h1),
+.markdown-body :deep(h2),
+.markdown-body :deep(h3),
+.markdown-body :deep(h4) {
+  color: var(--secondary);
+  margin-top: 0.95em;
+  margin-bottom: 0.45em;
+}
+
+.markdown-body :deep(h1:first-child),
+.markdown-body :deep(h2:first-child),
+.markdown-body :deep(h3:first-child) {
+  margin-top: 0;
+}
+
+.markdown-body :deep(p),
+.markdown-body :deep(ul),
+.markdown-body :deep(ol),
+.markdown-body :deep(blockquote) {
+  margin: 0.45em 0;
+}
+
+.markdown-body :deep(blockquote) {
+  margin: 0.55em 0;
+  padding: 0.45em 0.8em;
+  border-left: 3px solid var(--secondary);
+  border-radius: 6px;
+  background: rgba(0, 212, 255, 0.1);
+}
+
+.markdown-body :deep(blockquote p) {
+  margin: 0.1em 0;
+}
+
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) {
+  padding-left: 1.2em;
+}
+
+.markdown-body :deep(li) {
+  margin: 0.15em 0;
+}
+
+.markdown-body :deep(li > p) {
+  margin: 0.15em 0;
+}
+
+.markdown-body :deep(code) {
+  font-family: 'Courier New', monospace;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+.markdown-body :deep(pre) {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--border-glow);
+  border-radius: 10px;
+  padding: 12px;
+  overflow-x: auto;
+}
+
+.markdown-body :deep(pre code) {
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+
+.markdown-body :deep(a) {
+  color: var(--secondary);
 }
 
 @media (max-width: 1200px) {
@@ -1556,6 +1754,10 @@ onUnmounted(() => {
   .module-toolbar {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .report-focus-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

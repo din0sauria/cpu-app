@@ -1,24 +1,88 @@
 # Meltdown 实验报告
 
-## 实验目标
+## 1. 本项目具体说明
 
-本实验用于复现 Meltdown（CVE-2017-5754）的核心利用链路，观察用户态通过瞬态执行触达内核态数据后，如何借助 Flush+Reload 将架构状态之外的缓存变化转换为可观测结果。
+Meltdown (CVE-2017-5754) 是计算机安全史上严重的硬件漏洞之一。它打破了用户空间与内核空间之间最基本的**隔离屏障**。本项目通过在未安装内核隔离补丁（KPTI）的环境下，复现 5 个递进式 Demo，完整展示了攻击者如何从定位内核偏移量到尝试跨进程窃取物理内存数据的全过程。
 
-## 攻击机理概述
+## 2. 涉及资源
 
-Meltdown 的关键不在于“直接读取内核内存”，而在于权限检查与数据装载之间存在微架构时间窗。攻击代码在异常提交前已经把内核字节编码进缓存侧信道，因此即便寄存器中的结果最终被回滚，缓存状态仍会保留泄露痕迹。
+- **乱序执行引擎 (Out-of-Order Execution)**
+  
+  - **位置**: CPU 指令调度器与执行单元。
+    
+  - **功能**: 为了榨干流水线性能，CPU 会根据资源空闲情况提前执行后续指令，而不必等待前面的指令完全结束。
+    
+  - **利用**: CPU 在执行读取内核内存的指令时，权限检查（特权级校验）与数据读取是异步进行的。在权限检查失败并抛出异常之前，内核数据已经被加载到了 CPU 内部寄存器中。
+    
+- **隐蔽信道 (Covert Channel / Side-Channel)**
+  
+  - **位置**: CPU L1 数据缓存 (L1d Cache)。
+    
+  - **功能**: 存储最近访问过的内存数据。
+    
+  - **利用**: 采用 **Flush + Reload (清空与重载)** 技术。攻击者通过测量访问内存的时间（纳秒级）来判断数据是否在缓存中。由于推测执行会改变缓存状态，这成为了泄露内核数据的“漏斗”。
+    
+- **内核直接物理映射 (Direct Physical Map)**
+  
+  - **功能**: Linux 内核为了管理方便，将系统所有的物理内存线性映射到内核虚拟地址空间的一个固定偏移处。
+    
+  - **利用**: 攻击者一旦获取该偏移量（Offset），就可以通过内核地址访问系统中的任何物理内存位置。
+    
 
-在本项目中，`libkdump` 负责计时、刷新缓存与参数自适应；`test.c` 用于最小化验证；`kaslr.c` 和 `reliability.c` 用于进一步量化地址定位与读取稳定性；`secret.c`、`physical_reader.c`、`memory_filler.c`、`memdump.c` 则展示了从跨进程读取到大范围内存嗅探的完整链路。
+## 3. 攻击原理
 
-## 实验过程
+Meltdown 的攻击过程可以高度概括为“先斩后奏，留痕泄密”：
+
+1. **推测执行 (Speculative Execution)**：
+  
+  攻击者执行一段代码，指令 A 尝试读取一个只有内核能访问的地址。指令 B 根据指令 A 读取到的值（作为数组下标）去访问一个用户态数组。
+  
+2. **硬件竞争条件**：
+  
+  在微架构层面，指令 A 读取数据的速度通常快于特权检查（Permission Check）的速度。因此，指令 B 会使用**真实的内核数据**作为下标进行预执行，从而将用户态数组的特定位置加载进 Cache。
+  
+3. **异常处理与回滚**：
+  
+  随后硬件发现特权违规，抛出异常并回滚指令 A 和 B 的架构状态（寄存器清零）。但硬件**没有清空 Cache 的状态**。
+  
+4. **数据提取 (Side-Channel)**：
+  
+  攻击者捕获异常后，遍历用户态数组并测量每个元素的读取时间。访问最快（Cache Hit）的下标值，就是刚才被指令 A 读取出的内核字节。
+  
+
+## 4. 项目核心代码文件
+
+- **`libkdump/`**：底层支撑库，封装了时序测量（rdtscp）、缓存刷新（clflush）和各种 CPU 架构的微调参数。
+  
+- **`test.c` (Demo 1)**：初步验证。在单进程内模拟异常后的推测执行，验证侧信道是否畅通。
+  
+- **`kaslr.c` (Demo 2/5)**：自动化扫描探测。通过侧信道信号的强弱，逆向推导出 KASLR（内核地址空间随机化）的起始偏移量。
+  
+- **`reliability.c` (Demo 3)**：可靠性量化工具。通过不断读取已知地址，计算当前环境下侧信道数据传输的准确率。
+  
+- **`secret.c` & `physical_reader.c` (Demo 4)**：端到端跨进程利用。`secret` 进程在物理内存写入数据，`physical_reader` 尝试通过物理地址直接提取。
+  
+- **`memory_filler.c` & `memdump.c` (Demo 5)**：全内存嗅探。在大规模填充已知字符后，扫描物理内存，模拟真实环境下的机密扫描。
+
+## 5. 实验过程
 
 1. 先在具备较旧内核配置的 Linux 环境中编译 `make`。
 2. 使用 `taskset 0x1 ./test` 验证基础侧信道是否可用。
-3. 通过 `sudo taskset 0x1 ./kaslr` 获取 direct physical map 偏移。
-4. 使用 `sudo taskset 0x1 ./reliability <offset>` 评估读取稳定性。
-5. 运行 `secret`、`physical_reader` 与 `memdump` 验证跨进程与物理内存读取效果。
+破碎字符
+Expect: If you can read this, at least the auto configuration is working
+Got: I+ %o$ ca( read t 4s, at least the Nut$ c$nfigura#io) i7 working
 
-## 实测结果
+3. 通过 `sudo taskset 0x1 ./kaslr` 获取 direct physical map 偏移。
+Direct physical map offset: 0xffffb58f40000000
+
+4. 使用 `sudo taskset 0x1 ./reliability <offset>` 评估读取稳定性。
+Success rate: 0.40% (read 1121661 values)
+
+5. 运行 `secret`、`physical_reader` 与 `memdump` 验证跨进程与物理内存读取效果。
+输出全乱码
+
+
+## 6. 实测结果
 
 本次实验环境为第 12 代 Intel Core i5-1235U，硬件层面已具备 RDCL_NO 缓解特征，因此结果与旧款易感 CPU 存在明显差异：
 
@@ -27,12 +91,6 @@ Meltdown 的关键不在于“直接读取内核内存”，而在于权限检�
 - `reliability` 的记录结果为约 `0.40%` 成功率，读取带宽远低于论文环境。
 - 跨进程读取与内存嗅探阶段均未恢复出清晰的明文秘密，而是呈现大量噪声或碎片化内容。
 
-示例输出如下：
-
-```text
-[+] Direct physical map offset: 0xffffb58f40000000
-Success rate: 0.40 % (read 1121661 values)
-```
 
 ## 运行时间
 
