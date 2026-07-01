@@ -75,10 +75,6 @@ graph TD
   - **架构**: x86_64
   - **限制**: 关闭超线程（SMT）、CPU 睿频、irqbalance 服务，减少分支预测器的干扰噪声；绑定实验至单个 CPU 核心执行。
 
-- **启动参数 (Kernel)**:
-  - `mitigations=off`: 关闭 Spectre/Meltdown 相关硬件缓解措施，确保 BPRC 漏洞环境存在。
-  - `nosmap nosmep`: 关闭内核态 / 用户态内存访问限制，允许实验跨特权域执行代码。
-  - `isolcpus=0 nohz_full=0 rcu_nocbs=0`: 隔离 0 号 CPU 核心，禁止内核调度干扰，保证实验时序稳定性。
 
 ## 执行步骤
 
@@ -87,7 +83,6 @@ graph TD
     修改 Guest 的 GRUB 配置 (/etc/default/grub)，添加内核漏洞缓解关闭参数，关闭所有干扰项：
     ```bash
     GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"
-    GRUB_CMDLINE_LINUX="mitigations=off nosmap nosmep nopti nospectre_v2 nospectre_v1 l1tf=off mds=off tsx_async_abort=off ssbd=off intel_iommu=off isolcpus=0 nohz_full=0 rcu_nocbs=0"
     sudo update-grub && sudo reboot
     ```
 2.  **安装实验依赖**:

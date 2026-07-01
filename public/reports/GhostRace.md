@@ -74,9 +74,6 @@ graph TD
   - **CPU**: 11th Gen Intel(R) Core(TM) i5-11300H
   - **架构**: x86_64
 
-- **启动参数 (Kernel)**:
-  - `mitigations=off`: 关闭 Spectre/Meltdown 相关硬件缓解措施，确保确保投机执行可被利用。
-  - `nosti`: 禁用 KPTI（内核页表隔离），简化内核内存访问（可选，用于加速测试）。
 
 ## 执行步骤
 
@@ -85,8 +82,6 @@ graph TD
     ```bash
     # 安装目标内核及头文件
     sudo apt install -y linux-image-5.15.83-generic linux-headers-5.15.83-generic
-    # 修改GRUB配置，添加内核参数
-    sudo sed -i 's/GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="mitigations=off nopti"/' /etc/default/grub
     sudo update-grub && sudo reboot
     ```
 2.  **安装实验依赖**:

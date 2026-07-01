@@ -78,15 +78,12 @@ graph TD
   - **架构**: x86_64
   - **限制**: Intel 10 代及以上处理器开启硬件级 Enhanced IBRS 防护，直接阻断跨权限 BTI 攻击；虚拟机环境会进一步抹平缓存侧信道信号。
 
-- **启动参数 (Kernel)**:
-  - `spectre_v2=off retpoline=off ibpb=off ibrs=off rsb_fill=off`: 关闭所有 Spectre V2 相关软件防护，确保漏洞环境存在。
-
 ## 执行步骤
 
 ### 配环境步骤
 1.  **配置 Kernel 防护参数**:
     ```bash
-    GRUB_CMDLINE_LINUX_DEFAULT="quiet splash spectre_v2=off retpoline=off ibpb=off ibrs=off rsb_fill=off"
+    GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"
     sudo update-grub
     sudo reboot
     ```

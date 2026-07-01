@@ -264,5 +264,33 @@
     "summary": "围绕 Meltdown-CPL-REG 与 CounterLeak 的 PoC 与案例研究，用性能计数器与 Flush+Reload 验证系统寄存器泄露面。",
     "avgDetectTime": "20s",
     "reportPath": "/reports/Meltdown-3a.md"
+  },
+  {
+    "id": 20,
+    "name": "BHI",
+    "codeTags": ["poc"],
+    "cveId": ["CVE-2022-0001", "CVE-2022-0002"],
+    "cveType": "瞬态执行漏洞",
+    "osPlatforms": ["Linux"],
+    "processorPlatforms": ["Intel", "AMD"],
+    "attackType": "Spectre类攻击",
+    "riskLevel": "medium",
+    "summary": "Branch History Injection（BHI）通过重建分支历史并利用推测执行窗口泄露敏感信息，属于基于分支预测历史的侧信道攻击。",
+    "avgDetectTime": "120s",
+    "reportPath": "/reports/BHI.md"
+  },
+  {
+    "id": 21,
+    "name": "Inspectre",
+    "codeTags": ["poc"],
+    "cveId": "CVE-2024-2201",
+    "cveType": "瞬态执行漏洞",
+    "osPlatforms": ["Linux"],
+    "processorPlatforms": ["Intel", "AMD"],
+    "attackType": "Spectre类攻击",
+    "riskLevel": "low",
+    "summary": "Inspectre 用于分析和验证推测执行与侧信道泄露路径，提供可复现的实验与结果观测入口。",
+    "avgDetectTime": "60s",
+    "reportPath": "/reports/Inspectre.md"
   }
 ]
